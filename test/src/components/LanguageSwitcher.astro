@@ -1,0 +1,46 @@
+---
+const { t } = Astro.locals;
+const lang = Astro.request.locals.lang || 'en';
+---
+
+<div class="language-switcher">
+  <button
+    onclick={() => {
+      document.cookie = `lang=en; path=/; max-age=${60 * 60 * 24 * 365}`;
+      window.location.reload();
+    }}
+    class={lang === 'en' ? 'active' : ''}
+  >
+    English
+  </button>
+  <button
+    onclick={() => {
+      document.cookie = `lang=zh; path=/; max-age=${60 * 60 * 24 * 365}`;
+      window.location.reload();
+    }}
+    class={lang === 'zh' ? 'active' : ''}
+  >
+    中文
+  </button>
+</div>
+
+<style>
+.language-switcher {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.language-switcher button {
+  padding: 5px 10px;
+  border: none;
+  background: #f0f0f0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.language-switcher button.active {
+  background: #007bff;
+  color: white;
+}
+</style>

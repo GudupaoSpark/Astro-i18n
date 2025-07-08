@@ -1,0 +1,17 @@
+{
+  "name": "",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "astro": "^5.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.10"
+  }
+}
