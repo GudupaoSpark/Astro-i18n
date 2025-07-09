@@ -1,0 +1,22 @@
+---
+import Welcome from '../../components/Welcome.astro';
+import Layout from '../../layouts/Layout.astro';
+import LanguageSwitcher from '../../components/LanguageSwitcher.astro';
+import type { Locals } from '../../../../src/types';
+
+// 獲取動態路由參數
+export function getStaticPaths() {
+  return [
+    { params: { lang: 'en' } },
+    { params: { lang: 'zh' } },
+  ];
+}
+
+const { lang } = Astro.params;
+const t = (key: string) => key; // 簡單的翻譯函數
+---
+
+<Layout>
+  <Welcome />
+  <LanguageSwitcher lang={lang || 'en'} />
+</Layout>
