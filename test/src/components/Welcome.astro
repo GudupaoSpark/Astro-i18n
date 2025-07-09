@@ -1,20 +1,24 @@
 ---
-import type { RequestLocals } from '../../../src/plugin';
-import type { Locals } from '../../../src/types';
-import astroLogo from '../assets/astro.svg';
-import background from '../assets/background.svg';
-const { t } = Astro.locals as Locals;
----
 interface Props {
 }
 
-const {  } = Astro.props;
+import astroLogo from '../assets/astro.svg';
+import background from '../assets/background.svg';
+import { getTranslator } from '../../../src/translator';
+
+// 從參數獲取語言
+const lang = Astro.params.lang || 'en';
+
+// 使用參數中的lang直接加載翻譯
+const t = getTranslator(lang);
+
+// 調試輸出，檢查是否正確獲取到翻譯
+console.log(`[Welcome] 使用語言: ${lang}`);
+console.log(`[Welcome] 翻譯 'hello' => '${t('hello')}'`);
 ---
 
 <div id="container">
 	<img id="background" src={background.src} alt="" fetchpriority="high" />
----
----
 
 	<main>
 		<section id="hero">

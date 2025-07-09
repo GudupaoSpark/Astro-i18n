@@ -4,26 +4,38 @@
   "type": "module",
   "description": "Astro i18n 插件，支援 {{t.xxx}}，本地語言包、語言切換、SSR/SSG 通用。",
   "main": "./dist/index.js",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "import": "./dist/index.js"
-    }
+    ".": "./dist/index.js",
+    "./plugin": "./dist/plugin.js"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "files": [
     "dist"
   ],
+  "keywords": [
+    "astro",
+    "i18n",
+    "internationalization",
+    "localization"
+  ],
+  "author": "Gudupao",
+  "license": "MIT",
   "peerDependencies": {
-    "astro": "^4.0.0"
+    "astro": "^2.0.0 || ^3.0.0 || ^4.0.0 || ^5.0.0"
   },
   "dependencies": {
     "cookie": "^0.6.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0"
-  },
-  "license": "MIT"
+    "@types/node": "^24.0.10",
+    "@types/cookie": "^0.5.0",
+    "typescript": "^5.0.0",
+    "astro": "^5.11.0"
+  }
 }

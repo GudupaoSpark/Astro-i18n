@@ -1,42 +1,33 @@
 ---
-import type { RequestLocals } from '../../../src/plugin';
-import type { Request } from 'astro';
-import type { Request } from 'astro';
-import type { Request } from 'astro';
-const { t } = Astro.locals as { t: (key: string) => string };
-declare module 'astro' {
-  interface Request {
-    locals: RequestLocals;
-  }
+import type { Locals } from '../../../src/types';
+
+interface Props {
+  lang: string;
 }
-declare module 'astro' {
-  interface Request {
-    locals: RequestLocals;
-  }
-}
-declare module 'astro' {
-  interface Request {
-    locals: RequestLocals;
-  }
-}
-const lang = (Astro.request as { locals: RequestLocals }).locals.lang || 'en';
+
+const { lang } = Astro.props;
+
 ---
+<script is:inline>
+  function switchLanguage(language) {
+    const urlParts = window.location.pathname.split('/');
+    urlParts[1] = language;
+    window.location.href = urlParts.join('/');
+  }
+
+  const currentPath = window.location.pathname;
+  const urlParts = currentPath.split('/');
+</script>
 
 <div class="language-switcher">
   <button
-    onclick={(() => {
-      document.cookie = `lang=en; path=/; max-age=${60 * 60 * 24 * 365}`;
-      window.location.reload();
-    }}
+    onclick="switchLanguage('en')"
     class={lang === 'en' ? 'active' : ''}
   >
     English
   </button>
   <button
-    onclick={(() => {
-      document.cookie = `lang=zh; path=/; max-age=${60 * 60 * 24 * 365}`;
-      window.location.reload();
-    }}
+    onclick="switchLanguage('zh')"
     class={lang === 'zh' ? 'active' : ''}
   >
     中文
