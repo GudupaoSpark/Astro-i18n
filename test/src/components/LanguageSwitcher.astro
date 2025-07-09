@@ -1,11 +1,30 @@
 ---
-const { t } = Astro.locals;
-const lang = Astro.request.locals.lang || 'en';
+import type { RequestLocals } from '../../../src/plugin';
+import type { Request } from 'astro';
+import type { Request } from 'astro';
+import type { Request } from 'astro';
+const { t } = Astro.locals as { t: (key: string) => string };
+declare module 'astro' {
+  interface Request {
+    locals: RequestLocals;
+  }
+}
+declare module 'astro' {
+  interface Request {
+    locals: RequestLocals;
+  }
+}
+declare module 'astro' {
+  interface Request {
+    locals: RequestLocals;
+  }
+}
+const lang = (Astro.request as { locals: RequestLocals }).locals.lang || 'en';
 ---
 
 <div class="language-switcher">
   <button
-    onclick={() => {
+    onclick={(() => {
       document.cookie = `lang=en; path=/; max-age=${60 * 60 * 24 * 365}`;
       window.location.reload();
     }}
@@ -14,7 +33,7 @@ const lang = Astro.request.locals.lang || 'en';
     English
   </button>
   <button
-    onclick={() => {
+    onclick={(() => {
       document.cookie = `lang=zh; path=/; max-age=${60 * 60 * 24 * 365}`;
       window.location.reload();
     }}

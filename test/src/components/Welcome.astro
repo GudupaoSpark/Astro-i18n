@@ -1,8 +1,9 @@
 ---
 import type { RequestLocals } from '../../../src/plugin';
+import type { Locals } from '../../../src/types';
 import astroLogo from '../assets/astro.svg';
 import background from '../assets/background.svg';
-const { t } = Astro.locals as { t: (key: string) => string };
+const { t } = Astro.locals as Locals;
 ---
 interface Props {
 }
@@ -13,7 +14,6 @@ const {  } = Astro.props;
 <div id="container">
 	<img id="background" src={background.src} alt="" fetchpriority="high" />
 ---
-const { t } = Astro.locals;
 ---
 
 	<main>
