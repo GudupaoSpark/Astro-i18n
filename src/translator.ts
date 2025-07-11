@@ -8,24 +8,30 @@ let fallbackLang = 'en';
 function loadHardcodedTranslations() {
   console.log(`[astro-i18n] 加載硬編碼的翻譯作為備用`);
 
-  // 添加基本的硬編碼翻譯
+  // 添加基本的硬編碼翻譯 - 同时包含简单键名和命名空间键名
   localesCache['en'] = {
+    'welcome': 'Welcome',
+    'hello': 'Hello',
+    'language': 'Language',
     'common.welcome': 'Welcome',
     'common.hello': 'Hello',
     'common.language': 'Language'
   };
 
   localesCache['zh'] = {
-    'common.welcome': '歡迎',
+    'welcome': '欢迎',
+    'hello': '你好',
+    'language': '语言',
+    'common.welcome': '欢迎',
     'common.hello': '你好',
-    'common.language': '語言'
+    'common.language': '语言'
   };
 
   console.log(`[astro-i18n] 已加載硬編碼翻譯: en, zh`);
 }
 
 // 加载语言文件的函数
-export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en'): void {
+export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en', logger?: any): void {
   fallbackLang = fallback;
   let localesDir = path.join(rootDir, dir);
 
@@ -34,30 +40,39 @@ export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en
     loadHardcodedTranslations();
   }
 
+  // 使用console保证日志输出
   console.log(`[astro-i18n] 尝试加载语言文件从: ${localesDir}`);
+  logger?.info?.(`[astro-i18n] 尝试加载语言文件从: ${localesDir}`);
 
   try {
     // 检查语言目录是否存在
     if (!fs.existsSync(localesDir)) {
+      console.warn(`[astro-i18n] 无法找到语言目录: ${localesDir}`);
+
       // 尝试不同的目录路径来寻找语言文件
       const possiblePaths = [
         path.join(rootDir, '..', dir),      // 上级目录
         path.join(rootDir, '..', '..', dir), // 再上一级目录
         path.join(process.cwd(), dir),       // 当前工作目录
-        path.join(process.cwd(), 'test', dir) // test子目录
+        path.join(rootDir, 'public', dir),   // public目录
+        path.join(process.cwd(), 'public', dir) // 当前工作目录的public子目录
       ];
 
+      console.log(`[astro-i18n] 尝试查找语言目录，可能的路径: ${possiblePaths.join(', ')}`);
+
+      let found = false;
       for (const testPath of possiblePaths) {
         if (fs.existsSync(testPath)) {
           console.log(`[astro-i18n] 在替代路径找到语言目录: ${testPath}`);
           localesDir = testPath;
+          found = true;
           break;
         }
       }
 
-      if (localesDir === path.join(rootDir, dir)) {
-        console.warn(`[astro-i18n] 无法找到语言目录: ${localesDir}`);
-        console.warn(`[astro-i18n] 尝试了多个路径但都不存在`);
+      if (!found) {
+        console.warn(`[astro-i18n] 尝试了多个路径但都不存在，语言文件无法加载`);
+        console.warn(`[astro-i18n] 将使用硬编码的翻译作为备用`);
         return;
       }
     }
@@ -75,20 +90,26 @@ export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en
     });
 
     if (files.length === 0 && subDirs.length === 0) {
-      console.warn(`[astro-i18n] 未找到语言文件或子目录在: ${localesDir}`);
+      logger?.warn(`[astro-i18n] 未找到语言文件或子目录在: ${localesDir}`);
       return;
     }
 
     // 处理根目录中的语言文件
     for (const file of files as string[]) {
+      // 放宽文件名规则，允许任何JSON文件
       const filePath = path.join(localesDir, file);
-      const lang = file.replace('.json', '');
+      const lang = file.replace('.json', '').toLowerCase();
 
       try {
+        console.log(`[astro-i18n] 尝试加载语言文件: ${filePath}`);
         const content = fs.readFileSync(filePath, 'utf-8');
         const translations = JSON.parse(content) as Record<string, string>;
-        localesCache[lang] = translations;
+
+        // 合并而不是替换现有翻译
+        localesCache[lang] = { ...(localesCache[lang] || {}), ...translations };
+
         console.log(`[astro-i18n] 已加载语言: ${lang} (${Object.keys(translations).length} 个词条)`);
+        console.log(`[astro-i18n] 语言文件内容示例: ${JSON.stringify(Object.entries(translations).slice(0, 2))}`);
       } catch (error) {
         console.error(`[astro-i18n] 加载 ${file} 失败:`, error);
       }
@@ -119,26 +140,34 @@ export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en
             });
           }
         } catch (error) {
-          console.error(`[astro-i18n] 加载 ${dir}/${file} 失败:`, error);
+          logger?.error(`[astro-i18n] 加载 ${dir}/${file} 失败:`, error);
         }
       }
 
       if (Object.keys(langTranslations).length > 0) {
         localesCache[dir] = langTranslations;
-        console.log(`[astro-i18n] 已加载语言目录: ${dir} (${Object.keys(langTranslations).length} 个词条)`);
+        logger?.info(`[astro-i18n] 已加载语言目录: ${dir} (${Object.keys(langTranslations).length} 个词条)`);
       }
     }
   } catch (error) {
-    console.error(`[astro-i18n] 加载语言文件失败:`, error);
+    logger?.error(`[astro-i18n] 加载语言文件失败:`, error);
   }
 }
 
 // 获取翻译函数
 export function getTranslator(lang: string): (key: string, params?: Record<string, string | number>) => string {
+  // 检查语言缓存状态
+  const availableLangs = getAvailableLanguages();
+  if (availableLangs.length === 0) {
+    console.warn(`[astro-i18n] 初始化翻译器时发现翻译缓存为空，正在重新加载硬编码翻译...`);
+    loadHardcodedTranslations();
+  }
+
   return (key: string, params?: Record<string, string | number>) => {
-    // 当 localesCache 为空时打印警告
+    // 由于每次调用都会检查，这里再次确认缓存状态
     if (Object.keys(localesCache).length === 0) {
-      console.warn(`[astro-i18n] 翻译缓存为空，请确保已加载语言文件`);
+      console.warn(`[astro-i18n] 翻译函数调用时发现缓存为空，正在重新加载硬编码翻译...`);
+      loadHardcodedTranslations();
     }
 
     // 获取当前语言和后备语言的翻译
@@ -157,6 +186,8 @@ export function getTranslator(lang: string): (key: string, params?: Record<strin
         // 从后备语言找到翻译
         console.info(`[astro-i18n] 使用后备语言 (${fallbackLang}) 的翻译: ${key}`);
       }
+    } else {
+      console.log(`[${key}] 翻譯 '${key}' => '${text}'`);
     }
 
     // 替换参数 (如 {name} 将被替换为 params.name)

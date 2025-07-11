@@ -1,8 +1,9 @@
 import type { AstroIntegration } from 'astro';
 import type { Request } from 'astro';
 import type { Locals, AstroI18nOptions } from './types.js';
-// 導入 cookie 模塊
+// 导入 cookie 模块
 import { parse, serialize } from 'cookie';
+import path from 'path';
 
 declare module 'astro' {
   interface Request {
@@ -17,22 +18,40 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
   const localesDir = options.localesDir ?? 'locales';
   const fallbackLang = options.fallbackLang ?? 'en';
 
-  // 加載語言文件
-  loadLocalesFrom(process.cwd(), localesDir, fallbackLang);
+  // 立即加载语言文件，确保翻译缓存在插件初始化时就可用
+  console.log(`[astro-i18n] 插件初始化中，尝试加载语言文件...`);
+  loadLocalesFrom(process.cwd(), localesDir, fallbackLang, console);
+
+  // 验证语言文件是否成功加载
+  const availableLangs = getAvailableLanguages();
+  if (availableLangs.length > 0) {
+    console.log(`[astro-i18n] 已成功加载以下语言: ${availableLangs.join(', ')}`);
+  } else {
+    console.warn(`[astro-i18n] 警告：未能加载任何语言文件，将使用硬编码翻译`);
+  }
 
   return {
     name: 'astro-i18n',
     hooks: {
       'astro:build:setup': ({ logger }) => {
-        // 構建前檢查語言文件是否已加載
-        if (Object.keys(getAvailableLanguages()).length === 0) {
-          logger.warn('未找到任何語言文件。翻譯功能可能無法正常工作。');
+        // 在编译时确认语言文件已加载，如果需要重新加载则执行
+        if (getAvailableLanguages().length === 0) {
+          logger?.info('[astro-i18n] 在构建过程中加载语言文件');
+          loadLocalesFrom(process.cwd(), localesDir, fallbackLang, logger);
         } else {
-          logger.info(`已加載 ${getAvailableLanguages().length} 種語言: ${getAvailableLanguages().join(', ')}`);
+          logger?.info('[astro-i18n] 语言文件已加载，无需重复加载');
         }
       },
 
-      'astro:server:setup': ({ server }) => {
+      'astro:server:setup': ({ server, logger }) => {
+        // 在服务器启动时确认语言文件已加载，如果需要重新加载则执行
+        if (getAvailableLanguages().length === 0) {
+          logger?.info('[astro-i18n] 在服务器启动时加载语言文件');
+          loadLocalesFrom(process.cwd(), localesDir, fallbackLang, logger);
+        } else {
+          logger?.info('[astro-i18n] 语言文件已加载，无需重复加载');
+        }
+        
         server.middlewares.use((req: any, res, next) => {
             console.log(`[astro-i18n] 处理请求: ${req.url}`);
 
@@ -51,8 +70,12 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
 
             // 检查第一个路径段是否是有效的语言代码
             const firstSegment = pathSegments[1] || '';
-            // 从翻译缓存获取可用语言，如果为空则使用默认语言列表
+
+            // 强制重新检查可用语言
             const dynamicLangs = getAvailableLanguages();
+            console.log(`[astro-i18n] 当前可用语言: ${dynamicLangs.join(', ')}`);
+
+            // 确保至少有英文和中文可用
             const availableLangs = dynamicLangs.length > 0 ? 
                                  dynamicLangs : 
                                  ['en', 'zh']; // 简化支持的语言列表
@@ -75,8 +98,8 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
             }
 
             // 自动导向到语言URL路径
-            // 根據配置決定是否啟用自動重定向
-            if (!isLangInPath && options.autoRedirect === true) { // 只有明確啟用才進行重定向
+            // 根据配置决定是否启用自动重定向
+            if (!isLangInPath && options.autoRedirect === true) { // 只有明确启用才进行重定向
               // 获取当前URL和查询参数
               const pathname = url.pathname || '/';
               const search = url.search || '';
@@ -98,14 +121,20 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
               return;
             }
 
-            // 获取翻译函数
+            // 获取翻译函数并进行测试调用
             const t = getTranslator(lang);
+            console.log(`[astro-i18n] 翻译器测试 - hello: ${t('hello')}`);
 
             // 设置语言在请求locals中
             req.locals = { 
               lang, 
               t,
-              isLangInPath
+              isLangInPath,
+              i18n: {
+                // 提供一些额外工具函数
+                getAvailableLanguages: () => availableLangs,
+                getCurrentLang: () => lang
+              }
             };
 
             next();
@@ -114,5 +143,3 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
     }
   };
 }
-
-// 不再需要自定義的 parseCookies 函數，使用 cookie 包的 parse 方法
