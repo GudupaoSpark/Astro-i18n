@@ -1,9 +1,7 @@
 import type { AstroIntegration } from 'astro';
-import type { Request } from 'astro';
 import type { Locals, AstroI18nOptions } from './types.js';
 // 导入 cookie 模块
 import { parse, serialize } from 'cookie';
-import path from 'path';
 
 declare module 'astro' {
   interface Request {
@@ -18,40 +16,18 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
   const localesDir = options.localesDir ?? 'locales';
   const fallbackLang = options.fallbackLang ?? 'en';
 
-  // 立即加载语言文件，确保翻译缓存在插件初始化时就可用
-  console.log(`[astro-i18n] 插件初始化中，尝试加载语言文件...`);
-  loadLocalesFrom(process.cwd(), localesDir, fallbackLang, console);
-
-  // 验证语言文件是否成功加载
-  const availableLangs = getAvailableLanguages();
-  if (availableLangs.length > 0) {
-    console.log(`[astro-i18n] 已成功加载以下语言: ${availableLangs.join(', ')}`);
-  } else {
-    console.warn(`[astro-i18n] 警告：未能加载任何语言文件，将使用硬编码翻译`);
-  }
-
+  // 不再在插件初始化时加载语言文件
+  // 改为在首次调用翻译器时自动加载
+  console.log(`[astro-i18n] 插件初始化完成，语言文件将在首次翻译时自动加载`);
   return {
     name: 'astro-i18n',
     hooks: {
       'astro:build:setup': ({ logger }) => {
-        // 在编译时确认语言文件已加载，如果需要重新加载则执行
-        if (getAvailableLanguages().length === 0) {
-          logger?.info('[astro-i18n] 在构建过程中加载语言文件');
-          loadLocalesFrom(process.cwd(), localesDir, fallbackLang, logger);
-        } else {
-          logger?.info('[astro-i18n] 语言文件已加载，无需重复加载');
-        }
+        logger?.info('[astro-i18n] 语言文件将在构建过程中按需加载');
       },
 
       'astro:server:setup': ({ server, logger }) => {
-        // 在服务器启动时确认语言文件已加载，如果需要重新加载则执行
-        if (getAvailableLanguages().length === 0) {
-          logger?.info('[astro-i18n] 在服务器启动时加载语言文件');
-          loadLocalesFrom(process.cwd(), localesDir, fallbackLang, logger);
-        } else {
-          logger?.info('[astro-i18n] 语言文件已加载，无需重复加载');
-        }
-        
+        logger?.info('[astro-i18n] 语言文件将在服务器处理请求时按需加载');
         server.middlewares.use((req: any, res, next) => {
             console.log(`[astro-i18n] 处理请求: ${req.url}`);
 
@@ -121,14 +97,9 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
               return;
             }
 
-            // 获取翻译函数并进行测试调用
-            const t = getTranslator(lang);
-            console.log(`[astro-i18n] 翻译器测试 - hello: ${t('hello')}`);
-
             // 设置语言在请求locals中
             req.locals = { 
               lang, 
-              t,
               isLangInPath,
               i18n: {
                 // 提供一些额外工具函数

@@ -1,36 +1,36 @@
 ---
-import Welcome from '../../components/Welcome.astro';
-import Layout from '../../layouts/Layout.astro';
-import LanguageSwitcher from '../../components/LanguageSwitcher.astro';
-import { getTranslator } from '../../../../src/translator';
-import type { Locals } from '../../../../src/types';
+import TestAstro from "../../components/test.astro";
+import TestReact from "../../components/test.jsx";
+import Layout from "../../layouts/Layout.astro";
+import LanguageSwitcher from "../../components/LanguageSwitcher.astro";
+import { getTranslator } from "../../../../src/translator";
 
 // 獲取動態路由參數
 // 獲取所有支持的語言路徑
 export function getStaticPaths() {
-  const supportedLangs = ['en', 'zh'];
-  return supportedLangs.map(lang => ({
-    params: { lang }
+  const supportedLangs = ["en", "zh"];
+  return supportedLangs.map((lang) => ({
+    params: { lang },
   }));
 }
 
 const { lang } = Astro.params;
-const currentLang = lang || 'en';
+const currentLang = lang || "en";
 
 // 獲取正確的翻譯函數
 const t = getTranslator(currentLang);
 
 // 調試輸出
-console.log(`[${currentLang}] 翻譯hello: ${t('hello')}`);
+console.log(`[${currentLang}] 翻譯hello: ${t("hello")}`);
 ---
 
-<Layout title={`${t('hello')} - Astro i18n`}>
+<Layout title={`${t("hello")} - Astro i18n`}>
   <div class="debug-info">
-    <p>當前語言: {currentLang}</p>
-    <p>翻譯測試: {t('hello')}</p>
+    <p>Now language: {currentLang}</p>
+    <p>i18n Test: {t("hello")}</p>
   </div>
-
-  <Welcome />
+  <TestReact />
+  <TestAstro />
   <LanguageSwitcher lang={currentLang} />
 </Layout>
 

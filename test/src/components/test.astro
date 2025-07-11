@@ -1,0 +1,14 @@
+---
+import { getTranslator } from '../../../src/translator';
+
+// 從參數獲取語言
+const lang = Astro.params.lang || 'en';
+
+// 使用參數中的lang直接加載翻譯
+const t = getTranslator(lang);
+
+---
+
+<div>
+  <h1>Astro Test:{t('hello')}</h1>
+</div>

@@ -3,42 +3,13 @@ import path from 'path';
 
 let localesCache: Record<string, Record<string, string>> = {};
 let fallbackLang = 'en';
+let loaded = false; // 添加全局加载状态标志
 
-// 直接加載硬編碼的翻譯，確保至少有基本的翻譯可用
-function loadHardcodedTranslations() {
-  console.log(`[astro-i18n] 加載硬編碼的翻譯作為備用`);
-
-  // 添加基本的硬編碼翻譯 - 同时包含简单键名和命名空间键名
-  localesCache['en'] = {
-    'welcome': 'Welcome',
-    'hello': 'Hello',
-    'language': 'Language',
-    'common.welcome': 'Welcome',
-    'common.hello': 'Hello',
-    'common.language': 'Language'
-  };
-
-  localesCache['zh'] = {
-    'welcome': '欢迎',
-    'hello': '你好',
-    'language': '语言',
-    'common.welcome': '欢迎',
-    'common.hello': '你好',
-    'common.language': '语言'
-  };
-
-  console.log(`[astro-i18n] 已加載硬編碼翻譯: en, zh`);
-}
 
 // 加载语言文件的函数
 export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en', logger?: any): void {
   fallbackLang = fallback;
   let localesDir = path.join(rootDir, dir);
-
-  // 首先加載硬編碼的翻譯，確保至少有基本的翻譯可用
-  if (Object.keys(localesCache).length === 0) {
-    loadHardcodedTranslations();
-  }
 
   // 使用console保证日志输出
   console.log(`[astro-i18n] 尝试加载语言文件从: ${localesDir}`);
@@ -156,19 +127,15 @@ export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en
 
 // 获取翻译函数
 export function getTranslator(lang: string): (key: string, params?: Record<string, string | number>) => string {
-  // 检查语言缓存状态
-  const availableLangs = getAvailableLanguages();
-  if (availableLangs.length === 0) {
-    console.warn(`[astro-i18n] 初始化翻译器时发现翻译缓存为空，正在重新加载硬编码翻译...`);
-    loadHardcodedTranslations();
+  // 确保语言文件已加载
+  if (!loaded) {
+    console.warn('[astro-i18n] 警告：语言文件未加载，将自动加载默认配置');
+    loadLocalesFrom(process.cwd(), 'locales', fallbackLang, console);
+    loaded = true;
   }
-
+  
   return (key: string, params?: Record<string, string | number>) => {
-    // 由于每次调用都会检查，这里再次确认缓存状态
-    if (Object.keys(localesCache).length === 0) {
-      console.warn(`[astro-i18n] 翻译函数调用时发现缓存为空，正在重新加载硬编码翻译...`);
-      loadHardcodedTranslations();
-    }
+
 
     // 获取当前语言和后备语言的翻译
     const dict = localesCache[lang] || {};
@@ -181,20 +148,20 @@ export function getTranslator(lang: string): (key: string, params?: Record<strin
       if (text === undefined) {
         // 如果后备语言也没有，则使用键本身
         console.warn(`[astro-i18n] 未找到翻译: ${key} (语言: ${lang}, 后备语言: ${fallbackLang})`);
-        text = key;
+        // text = key;
       } else {
         // 从后备语言找到翻译
         console.info(`[astro-i18n] 使用后备语言 (${fallbackLang}) 的翻译: ${key}`);
       }
     } else {
-      console.log(`[${key}] 翻譯 '${key}' => '${text}'`);
-    }
-
-    // 替换参数 (如 {name} 将被替换为 params.name)
-    if (params) {
-      Object.entries(params).forEach(([paramKey, value]) => {
-        text = text.replace(new RegExp(`\{${paramKey}\}`, 'g'), String(value));
-      });
+      console.log(`[Astro-i18n] 翻譯 '${key}' => '${text}'`);
+      /* 
+          // 替换参数 (如 {name} 将被替换为 params.name)
+          if (params) {
+            Object.entries(params).forEach(([paramKey, value]) => {
+              text = text.replace(new RegExp(`\{${paramKey}\}`, 'g'), String(value));
+            });
+          } */
     }
 
     return text;
