@@ -1,6 +1,6 @@
   // @ts-check
   import { defineConfig } from 'astro/config';
-  import { astroI18nPlugin } from '../src/plugin.ts';
+  import { astroI18nPlugin } from '../src/plugin.js';
   import path from 'path';
 
   // 獲取當前工作目錄
