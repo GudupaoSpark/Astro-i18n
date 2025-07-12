@@ -9,6 +9,10 @@ const { lang } = Astro.props;
 ---
 <script is:inline>
   function switchLanguage(language) {
+    // 設置語言 Cookie
+    document.cookie = `lang=${language}; path=/; max-age=31536000; samesite=lax`;
+    console.log('[LanguageSwitcher] 設置語言 Cookie:', language);
+    
     const urlParts = window.location.pathname.split('/');
     urlParts[1] = language;
     window.location.href = urlParts.join('/');

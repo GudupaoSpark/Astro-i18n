@@ -38,6 +38,96 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
           fs.mkdirSync(tempDir, { recursive: true });
         }
 
+        // 創建客戶端語言檢測和重定向處理器
+        const languageDetectorContent = `
+---
+import { getAvailableLanguages } from "${path.resolve(__dirname, './translator.js').replace(/\\/g, '/')}";
+
+const availableLanguages = getAvailableLanguages();
+const fallbackLang = "${fallbackLang}";
+---
+
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>語言檢測中...</title>
+  <script define:vars={{ availableLanguages, fallbackLang }}>
+    // 客戶端語言檢測函數
+    function detectLanguage() {
+      console.log('[astro-i18n] 開始客戶端語言檢測，可用語言:', availableLanguages.join(', '));
+      
+      // 1. 檢查 URL 查詢參數
+      const urlParams = new URLSearchParams(window.location.search);
+      const langParam = urlParams.get('lang');
+      if (langParam && availableLanguages.includes(langParam)) {
+        console.log('[astro-i18n] 從 URL 參數檢測到語言:', langParam);
+        return langParam;
+      }
+
+      // 2. 檢查 Cookie
+      console.log('[astro-i18n] 當前所有 Cookies:', document.cookie);
+      const cookies = {};
+      if (document.cookie) {
+        document.cookie.split(';').forEach(cookie => {
+          const parts = cookie.trim().split('=');
+          if (parts.length === 2) {
+            cookies[parts[0]] = decodeURIComponent(parts[1]);
+          }
+        });
+      }
+      console.log('[astro-i18n] 解析後的 Cookies:', JSON.stringify(cookies));
+      
+      const cookieLang = cookies.lang;
+      if (cookieLang && availableLanguages.includes(cookieLang)) {
+        console.log('[astro-i18n] 從 Cookie 檢測到語言:', cookieLang);
+        return cookieLang;
+      } else if (cookieLang) {
+        console.log('[astro-i18n] Cookie 中的語言無效:', cookieLang, '可用語言:', availableLanguages);
+      } else {
+        console.log('[astro-i18n] 未找到語言 Cookie');
+      }
+
+      // 3. 檢查瀏覽器語言偏好
+      const browserLangs = navigator.languages || [navigator.language];
+      for (const browserLang of browserLangs) {
+        const lang = browserLang.split('-')[0].toLowerCase();
+        if (availableLanguages.includes(lang)) {
+          console.log('[astro-i18n] 從瀏覽器語言檢測到:', lang);
+          return lang;
+        }
+      }
+
+      // 4. 使用後備語言
+      console.log('[astro-i18n] 使用後備語言:', fallbackLang);
+      return fallbackLang;
+    }
+
+    // 執行語言檢測和重定向
+    const detectedLang = detectLanguage();
+    const currentPath = window.location.pathname;
+    const targetPath = '/' + detectedLang + (currentPath === '/' ? '' : currentPath);
+    
+    console.log('[astro-i18n] 檢測到語言:', detectedLang, '當前路徑:', currentPath, '目標路徑:', targetPath);
+    
+    // 設置語言 Cookie
+    document.cookie = \`lang=\${detectedLang}; path=/; max-age=31536000; samesite=lax\`;
+    
+    // 重定向到語言版本
+    window.location.replace(targetPath + window.location.search);
+  </script>
+</head>
+<body>
+  <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+    <p>正在檢測語言偏好...</p>
+    <p>Detecting language preference...</p>
+  </div>
+</body>
+</html>
+        `;
+
+        const detectorFilePath = path.join(tempDir, 'language-detector.astro');
+        fs.writeFileSync(detectorFilePath, languageDetectorContent, 'utf-8');
+
         if (fs.existsSync(pagesDir)) {
           // 掃描所有頁面文件
           const scanPages = (dir: string, basePath = ''): Array<{path: string, file: string}> => {
@@ -65,11 +155,29 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
           const userPages = scanPages(pagesDir);
           logger.info(`[astro-i18n] 發現頁面: ${userPages.map(p => p.path || 'index').join(', ')}`);
 
-          // 為每個頁面創建語言路由
+          // 為每個頁面創建兩種路由：
+          // 1. 語言檢測重定向路由（原始路徑）
+          // 2. 語言版本路由（/[lang]/path）
           for (const page of userPages) {
-            const routePattern = page.path ? `/[lang]/${page.path}` : '/[lang]';
-            const tempFileName = `lang-${page.path.replace(/\//g, '-') || 'index'}.astro`;
-            const tempFilePath = path.join(tempDir, tempFileName);
+            const originalRoute = page.path ? `/${page.path}` : '/';
+            const langRoute = page.path ? `/[lang]/${page.path}` : '/[lang]';
+            
+            // 1. 創建語言檢測重定向路由
+            const redirectFileName = `redirect-${page.path.replace(/\//g, '-') || 'index'}.astro`;
+            const redirectFilePath = path.join(tempDir, redirectFileName);
+            
+            fs.writeFileSync(redirectFilePath, languageDetectorContent, 'utf-8');
+            
+            injectRoute({
+              pattern: originalRoute,
+              entrypoint: url.pathToFileURL(redirectFilePath).toString(),
+            });
+            
+            logger.info(`[astro-i18n] 注入重定向路由: ${originalRoute} -> 語言檢測`);
+            
+            // 2. 創建語言版本路由
+            const langFileName = `lang-${page.path.replace(/\//g, '-') || 'index'}.astro`;
+            const langFilePath = path.join(tempDir, langFileName);
 
             // 讀取原始頁面內容
             const originalContent = fs.readFileSync(page.file, 'utf-8');
@@ -79,7 +187,7 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
             
             // 計算從臨時文件到原始頁面目錄的相對路徑，用於修正導入路徑
             const originalPageDir = path.dirname(page.file);
-            const tempFileDir = path.dirname(tempFilePath);
+            const tempFileDir = path.dirname(langFilePath);
             const relativePathToOriginal = path.relative(tempFileDir, originalPageDir);
             
             // 修正所有相對導入路徑
@@ -171,14 +279,14 @@ Astro.locals.t = t;
               modifiedContent = newFrontmatter + modifiedContent;
             }
 
-            fs.writeFileSync(tempFilePath, modifiedContent, 'utf-8');
+            fs.writeFileSync(langFilePath, modifiedContent, 'utf-8');
 
             injectRoute({
-              pattern: routePattern,
-              entrypoint: url.pathToFileURL(tempFilePath).toString(),
+              pattern: langRoute,
+              entrypoint: url.pathToFileURL(langFilePath).toString(),
             });
 
-            logger.info(`[astro-i18n] 注入路由: ${routePattern}`);
+            logger.info(`[astro-i18n] 注入語言路由: ${langRoute}`);
           }
         }
 
