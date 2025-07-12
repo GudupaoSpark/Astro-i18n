@@ -103,16 +103,26 @@ const fallbackLang = "${fallbackLang}";
 
     // 執行語言檢測和重定向
     const detectedLang = detectLanguage();
-    const currentPath = window.location.pathname;
-    const targetPath = '/' + detectedLang + (currentPath === '/' ? '' : currentPath);
     
-    console.log('[astro-i18n] 檢測到語言:', detectedLang, '當前路徑:', currentPath, '目標路徑:', targetPath);
+    // 從查詢參數中獲取原始路徑
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectPath = urlParams.get('redirect') || '/';
+    
+    // 移除 redirect 參數，保留其他查詢參數
+    urlParams.delete('redirect');
+    const remainingQuery = urlParams.toString();
+    const queryString = remainingQuery ? '?' + remainingQuery : '';
+    
+    // 構建目標路徑
+    const targetPath = '/' + detectedLang + (redirectPath === '/' ? '' : redirectPath);
+    
+    console.log('[astro-i18n] 檢測到語言:', detectedLang, '重定向路徑:', redirectPath, '目標路徑:', targetPath);
     
     // 設置語言 Cookie
     document.cookie = \`lang=\${detectedLang}; path=/; max-age=31536000; samesite=lax\`;
     
     // 重定向到語言版本
-    window.location.replace(targetPath + window.location.search);
+    window.location.replace(targetPath + queryString);
   </script>
 </head>
 <body>
@@ -231,18 +241,34 @@ Astro.locals.t = t;
 
         // 添加一个 Vite 中间件来处理根路径的重定向
         server.middlewares.use((req, res, next) => {
-          const url = req.url;
-          // 检查 URL 是否是根路径，并且没有语言前缀 (例如 /en/, /zh/)
-          // 还需要确保它不是对语言检测路由本身的请求
-          if (url === '/' || (url && !url.startsWith('/__i18n_detect_language__') && /^\/[a-z]{2}(?:\/.*)?$/.test(url) === false && url.split('/').length <= 2)) {
-            logger.info(`Intercepted unhandled root path request: ${url}, redirecting to language detector.`);
-            // 重定向到语言检测路由
+          const url = req.url || '';
+          const pathname = url.split('?')[0]; // 移除查詢參數
+          
+          // 跳過靜態資源和特殊路徑
+          if (pathname.startsWith('/@') ||
+              pathname.startsWith('/__') ||
+              pathname.includes('.') ||
+              pathname.startsWith('/node_modules')) {
+            return next();
+          }
+          
+          // 檢查是否已經有語言前綴 (例如 /en/, /zh/, /jp/)
+          const pathParts = pathname.split('/').filter(Boolean);
+          const availableLanguages = ['en', 'zh', 'jp']; // 可以從 getAvailableLanguages() 獲取
+          
+          // 如果第一個路徑段不是已知語言，則重定向到語言檢測器
+          if (pathParts.length === 0 || !availableLanguages.includes(pathParts[0])) {
+            logger.info(`[astro-i18n] 攔截到無語言前綴的請求: ${pathname}，重定向到語言檢測器`);
+            // 將原始路徑作為查詢參數傳遞
+            const originalQuery = url.includes('?') ? '&' + url.split('?')[1] : '';
+            const redirectUrl = `/__i18n_detect_language__?redirect=${encodeURIComponent(pathname)}${originalQuery}`;
             res.writeHead(302, {
-              'Location': '/__i18n_detect_language__' + (req.url === '/' ? '' : req.url),
+              'Location': redirectUrl,
             });
             res.end();
             return;
           }
+          
           next();
         });
       },
