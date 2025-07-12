@@ -1,12 +1,11 @@
 ---
 import { getTranslator } from '../../../src/translator.js';
 import Layout from '../layouts/Layout.astro';
-import LanguageSwitcher from '../components/LanguageSwitcher.astro';
 import TestAstro from '../components/test.astro';
 import TestReact from '../components/test';
 
 // 靜態模式下默認使用英文
-const lang = 'en';
+const lang = Astro.params.lang || 'en';
 const t = getTranslator(lang);
 
 console.log(`[${lang}] 翻譯hello: ${t("hello")}`);
@@ -20,7 +19,6 @@ console.log(`[${lang}] 翻譯hello: ${t("hello")}`);
   
   <TestReact t={t} />
   <TestAstro />
-  <LanguageSwitcher lang={lang} />
 </Layout>
 
 <style>

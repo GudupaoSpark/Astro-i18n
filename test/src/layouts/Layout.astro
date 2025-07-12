@@ -1,13 +1,20 @@
 ---
 interface Props {
   title?: string;
+  lang?: string; // Add lang prop
 }
 
+import LanguageSwitcher from '../components/LanguageSwitcher.astro'; // Import LanguageSwitcher component
+
 const { title = 'Astro i18n Demo' } = Astro.props;
+
+// Determine the current language from the URL path
+// Assuming the language is the first segment after the base URL, e.g., /en/page or /zh/page
+const currentLang = Astro.url.pathname.split('/')[1] || 'en'; // Default to 'en' if not found
 ---
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang={currentLang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,6 +23,7 @@ const { title = 'Astro i18n Demo' } = Astro.props;
     <title>{title}</title>
   </head>
   <body>
+    <LanguageSwitcher lang={currentLang} />
     <slot />
   </body>
 </html>

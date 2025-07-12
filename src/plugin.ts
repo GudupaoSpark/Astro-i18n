@@ -30,7 +30,6 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
       'astro:config:setup': ({ injectRoute, updateConfig, config, logger }) => {
         logger.info('[astro-i18n] Setting up automatic route detection...');
         
-        // 自動掃描 src/pages 目錄，為每個頁面生成語言路由
         const pagesDir = path.join(process.cwd(), 'src', 'pages');
         const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
         
@@ -182,90 +181,29 @@ const fallbackLang = "${fallbackLang}";
             // 讀取原始頁面內容
             const originalContent = fs.readFileSync(page.file, 'utf-8');
             
-            // 智能修改原始頁面，添加語言支持
-            let modifiedContent = originalContent;
-            
+            // 提取原始頁面的 prerender 導出
+            const prerenderMatch = originalContent.match(/export const prerender = (true|false);/);
+            const prerenderExport = prerenderMatch ? `export const prerender = ${prerenderMatch[1]};` : '';
+
             // 計算從臨時文件到原始頁面目錄的相對路徑，用於修正導入路徑
             const originalPageDir = path.dirname(page.file);
             const tempFileDir = path.dirname(langFilePath);
-            const relativePathToOriginal = path.relative(tempFileDir, originalPageDir);
-            
-            // 修正所有相對導入路徑
-            modifiedContent = modifiedContent.replace(
-              /import\s+.*?\s+from\s+['"](\.\.[^'"]*)['"]/g,
-              (match, importPath) => {
-                const correctedPath = path.posix.join(relativePathToOriginal, importPath).replace(/\\/g, '/');
-                return match.replace(importPath, correctedPath);
-              }
-            );
-            
-            // 檢查是否已經有 frontmatter
-            const frontmatterMatch = modifiedContent.match(/^---\s*\n([\s\S]*?)\n---/);
-            
-            if (frontmatterMatch) {
-              const existingFrontmatter = frontmatterMatch[1];
-              
-              // 檢查是否已經導入了我們需要的函數
-              const hasGetStaticPaths = existingFrontmatter.includes('getStaticPaths');
-              const hasGetTranslator = existingFrontmatter.includes('getTranslator');
-              
-              // 檢查是否已經定義了 lang 和 t 變數
-              const hasLangVar = existingFrontmatter.includes('const lang') || existingFrontmatter.includes('let lang');
-              const hasTVar = existingFrontmatter.includes('const t') || existingFrontmatter.includes('let t');
-              
-              let newImports = '';
-              let newVars = '';
-              
-              // 添加必要的導入
-              if (!hasGetStaticPaths || !hasGetTranslator) {
-                const imports = [];
-                if (!hasGetStaticPaths) imports.push('getStaticPaths');
-                if (!hasGetTranslator) imports.push('getTranslator');
-                newImports = `import { ${imports.join(', ')} } from "${path.resolve(__dirname, './translator.js').replace(/\\/g, '/')}";\n`;
-              }
-              
-              // 添加 getStaticPaths 導出
-              if (!hasGetStaticPaths) {
-                newImports += 'export { getStaticPaths };\n';
-              }
-              
-              // 先處理現有的變數定義
-              let updatedFrontmatter = existingFrontmatter;
-              
-              if (hasLangVar) {
-                // 替換現有的 lang 定義
-                updatedFrontmatter = updatedFrontmatter.replace(
-                  /const lang = ['"][^'"]*['"];?/g,
-                  'const { lang } = Astro.params;'
-                );
-              } else {
-                // 添加新的 lang 變數
-                newVars += 'const { lang } = Astro.params;\n';
-              }
-              
-              if (hasTVar) {
-                // 替換現有的 t 定義
-                updatedFrontmatter = updatedFrontmatter.replace(
-                  /const t = getTranslator\(['"][^'"]*['"]\);?/g,
-                  'const t = getTranslator(lang);'
-                );
-              } else {
-                // 添加新的 t 變數
-                newVars += 'const t = getTranslator(lang);\n';
-              }
-              
-              // 插入新的導入和變數到 frontmatter 開始處，但語言上下文設置要放在最後
-              const newFrontmatter = newImports + newVars + updatedFrontmatter + '\n// 設置語言上下文\nAstro.locals.lang = lang;\nAstro.locals.t = t;\n';
-              modifiedContent = modifiedContent.replace(
-                /^---\s*\n[\s\S]*?\n---/,
-                `---\n${newFrontmatter}\n---`
-              );
-            } else {
-              // 如果沒有 frontmatter，創建一個新的
-              const newFrontmatter = `---
-import { getStaticPaths, getTranslator } from "${path.resolve(__dirname, './translator.js').replace(/\\/g, '/')}";
+            const relativePathToOriginal = path.relative(tempFileDir, originalPageDir).replace(/\\/g, '/');
 
-export { getStaticPaths };
+            // 創建一個包裝器頁面，它將導入原始頁面並設置語言上下文
+            const wrapperContent = `---
+import { getStaticPaths as originalGetStaticPaths, getTranslator } from "${path.resolve(__dirname, './translator.js').replace(/\\/g, '/')}";
+import OriginalPage from "${relativePathToOriginal}/${path.basename(page.file)}";
+
+${prerenderExport}
+
+export const getStaticPaths = async (context) => {
+  if (originalGetStaticPaths) {
+    const paths = await originalGetStaticPaths(context);
+    return paths.map(p => ({ ...p, params: { ...p.params, lang: p.params?.lang || '' } }));
+  }
+  return [];
+};
 
 const { lang } = Astro.params;
 const t = getTranslator(lang);
@@ -275,9 +213,9 @@ Astro.locals.lang = lang;
 Astro.locals.t = t;
 ---
 
+<OriginalPage {...Astro.props} />
 `;
-              modifiedContent = newFrontmatter + modifiedContent;
-            }
+            let modifiedContent = wrapperContent;
 
             fs.writeFileSync(langFilePath, modifiedContent, 'utf-8');
 
@@ -291,6 +229,11 @@ Astro.locals.t = t;
         }
 
         logger.info('[astro-i18n] Automatic route detection completed.');
+      },
+      'astro:server:setup': ({ server, logger }) => {
+        const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
+        logger.info(`[astro-i18n] Adding temporary directory to Vite watcher: ${tempDir}`);
+        server.watcher.add(tempDir);
       },
       'astro:build:setup': ({ logger }) => {
         logger?.info('[astro-i18n] 语言文件将在构建过程中按需加载');
