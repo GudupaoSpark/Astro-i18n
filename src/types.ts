@@ -1,10 +1,4 @@
 export type LocaleMap = Record<string, string>;
-export interface Locals {
-  lang: string;
-  t: (key: string, params?: Record<string, string | number>) => string;
-  isLangInPath: boolean;
-}
-
 export interface I18nHelper {
   getAvailableLanguages: () => string[];
   getCurrentLang: () => string;
@@ -12,7 +6,6 @@ export interface I18nHelper {
 
 export interface Locals {
   lang: string;
-  t: (key: string, params?: Record<string, string | number>) => string;
   isLangInPath: boolean;
   i18n?: I18nHelper;
 }

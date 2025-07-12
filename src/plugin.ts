@@ -12,9 +12,6 @@ declare module 'astro' {
 }
 import { loadLocalesFrom, getTranslator, getAvailableLanguages } from './translator.js';
 
-// 将supportedLangs提升到模块作用域
-const supportedLangs = ["en"];
-
 export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegration {
   const localesDir = options.localesDir ?? 'locales';
   const fallbackLang = options.fallbackLang ?? 'en';
@@ -57,7 +54,7 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
             // 确保至少有英文和中文可用
             const availableLangs = dynamicLangs.length > 0 ?
                                  dynamicLangs :
-                                 supportedLangs; // 使用预定义的支持语言列表
+                                 [fallbackLang]; // 使用回退语言作为最终保障
 
             let lang = fallbackLang;
             let isLangInPath = false;
@@ -101,14 +98,13 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
             }
 
             // 设置语言在请求locals中
-            req.locals = {
-              lang,
-              isLangInPath,
-              i18n: {
-                // 提供一些额外工具函数
-                getAvailableLanguages: () => availableLangs,
-                getCurrentLang: () => lang
-              }
+            // 获取翻译函数
+            // 设置语言和翻译函数在请求locals中
+            req.locals.lang = lang;
+            req.locals.isLangInPath = isLangInPath;
+            req.locals.i18n = {
+              getAvailableLanguages: () => availableLangs,
+              getCurrentLang: () => lang
             };
 
             next();
@@ -116,10 +112,4 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
       }
     }
   };
-}
-
-export function getStaticPaths() {
-  return supportedLangs.map((lang: string) => ({
-    params: { lang },
-  }));
 }

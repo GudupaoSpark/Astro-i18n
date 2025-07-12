@@ -5,7 +5,7 @@
 ## 安装
 
 ```bash
-pnpm add astro-i18n
+pnpm add @gudupao/astro-i18n
 ```
 
 ## 使用方法
@@ -15,14 +15,13 @@ pnpm add astro-i18n
 ```typescript
 // astro.config.mjs
 import { defineConfig } from 'astro/config';
-import { astroI18nPlugin } from 'astro-i18n';
+import { astroI18nPlugin } from '@gudupao/astro-i18n';
 
 export default defineConfig({
   integrations: [
     astroI18nPlugin({
       localesDir: 'locales',      // 语言文件目录，默认为'locales'
       fallbackLang: 'en',        // 后备语言，默认为'en'
-      autoRedirect: true         // 是否自动重定向到用户语言路径，默认为true
     })
   ]
 });
@@ -43,15 +42,16 @@ export default defineConfig({
 ```astro
 ---
 // src/pages/[lang]/index.astro
-export function getStaticPaths() {
-  return [
-    { params: { lang: 'en' } },
-    { params: { lang: 'zh' } }
-  ];
-}
+import { getTranslator, getStaticPaths } from 'astro-i18n';
+export { getStaticPaths };
+
+// 如果使用 SSG, 需要导出 getStaticPaths
+// export { getStaticPaths };
 
 const { lang } = Astro.params;
-const { t } = Astro.locals;
+// 从 Astro.locals 获取 lang, 或从 Astro.params 获取
+// 然后调用 getTranslator 获取翻译函数
+const t = getTranslator(lang ?? 'en');
 ---
 
 <html lang={lang}>

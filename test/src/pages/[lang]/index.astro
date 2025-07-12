@@ -3,8 +3,9 @@ import TestAstro from "../../components/test.astro";
 import TestReact from "../../components/test.jsx";
 import Layout from "../../layouts/Layout.astro";
 import LanguageSwitcher from "../../components/LanguageSwitcher.astro";
-import { getTranslator } from "../../../../src/translator";
-export { getStaticPaths } from "../../../../src/plugin";
+import { getTranslator, getStaticPaths } from "../../../../src/index";
+
+export {getStaticPaths};
 
 const { lang } = Astro.params;
 

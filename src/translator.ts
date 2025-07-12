@@ -148,7 +148,7 @@ export function getTranslator(lang: string): (key: string, params?: Record<strin
       if (text === undefined) {
         // 如果后备语言也没有，则使用键本身
         console.warn(`[astro-i18n] 未找到翻译: ${key} (语言: ${lang}, 后备语言: ${fallbackLang})`);
-        // text = key;
+        text = key;
       } else {
         // 从后备语言找到翻译
         console.info(`[astro-i18n] 使用后备语言 (${fallbackLang}) 的翻译: ${key}`);
@@ -180,5 +180,19 @@ export function hasTranslation(lang: string, key: string): boolean {
 
 // 辅助函数：获取所有已加载的语言
 export function getAvailableLanguages(): string[] {
+  // 确保语言文件已加载，这对于 getStaticPaths 至关重要
+  if (!loaded) {
+    console.warn('[astro-i18n] 警告：语言文件可能未加载，将尝试自动加载。');
+    loadLocalesFrom(process.cwd(), 'locales', fallbackLang, console);
+    loaded = true;
+  }
   return Object.keys(localesCache);
+}
+
+// 辅助函数：为 Astro 的 getStaticPaths 生成路径
+export function getStaticPaths() {
+  const languages = getAvailableLanguages();
+  return languages.map((lang) => ({
+    params: { lang },
+  }));
 }
