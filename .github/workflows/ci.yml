@@ -40,10 +40,7 @@ jobs:
         node -p "((p)=>{p.version='$VERSION'; return JSON.stringify(p, null, 2);})(require('./package.json'))" > package.json.tmp && mv package.json.tmp package.json
 
 
-    - name: Pack package
-      run: pnpm pack
-
     - name: Publish to npm
-      run: pnpm publish --no-git-checks
+      run: pnpm publish . --no-git-checks
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
