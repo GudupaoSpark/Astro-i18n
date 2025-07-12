@@ -18,11 +18,8 @@ jobs:
         node-version: '20'
         cache: 'pnpm' # Use pnpm for caching
 
-    - name: Set up pnpm
-      uses: pnpm/action-setup@v3
-      with:
-        version: 8
-        run_install: true # Automatically runs pnpm install
+    - name: Enable Corepack
+      run: corepack enable pnpm
 
     - name: Install dependencies (root)
       run: pnpm install --no-frozen-lockfile
@@ -59,11 +56,8 @@ jobs:
         VERSION=${{ steps.get_version.outputs.VERSION }}
         node -p "((p)=>{p.version='$VERSION'; return JSON.stringify(p, null, 2);})(require('./package.json'))" > package.json.tmp && mv package.json.tmp package.json
 
-    - name: Set up pnpm
-      uses: pnpm/action-setup@v3
-      with:
-        version: 8
-        run_install: true # Automatically runs pnpm install
+    - name: Enable Corepack
+      run: corepack enable pnpm
 
     - name: Install dependencies
       run: pnpm install --no-frozen-lockfile
