@@ -155,26 +155,20 @@ const fallbackLang = "${fallbackLang}";
           logger.info(`[astro-i18n] 發現頁面: ${userPages.map(p => p.path || 'index').join(', ')}`);
 
           // 為每個頁面創建兩種路由：
-          // 1. 語言檢測重定向路由（原始路徑）
-          // 2. 語言版本路由（/[lang]/path）
+          // 將語言檢測路由注入到一個唯一的、不衝突的內部路徑
+          const detectorRoute = '/__i18n_detect_language__';
+          injectRoute({
+            pattern: detectorRoute,
+            entrypoint: url.pathToFileURL(detectorFilePath).toString(),
+          });
+          logger.info(`[astro-i18n] 注入語言檢測路由: ${detectorRoute}`);
+
+
+          // 為每個頁面創建語言版本路由（/[lang]/path）
           for (const page of userPages) {
-            const originalRoute = page.path ? `/${page.path}` : '/';
             const langRoute = page.path ? `/[lang]/${page.path}` : '/[lang]';
             
-            // 1. 創建語言檢測重定向路由
-            const redirectFileName = `redirect-${page.path.replace(/\//g, '-') || 'index'}.astro`;
-            const redirectFilePath = path.join(tempDir, redirectFileName);
-            
-            fs.writeFileSync(redirectFilePath, languageDetectorContent, 'utf-8');
-            
-            injectRoute({
-              pattern: originalRoute,
-              entrypoint: url.pathToFileURL(redirectFilePath).toString(),
-            });
-            
-            logger.info(`[astro-i18n] 注入重定向路由: ${originalRoute} -> 語言檢測`);
-            
-            // 2. 創建語言版本路由
+            // 創建語言版本路由
             const langFileName = `lang-${page.path.replace(/\//g, '-') || 'index'}.astro`;
             const langFilePath = path.join(tempDir, langFileName);
 
@@ -234,6 +228,23 @@ Astro.locals.t = t;
         const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
         logger.info(`[astro-i18n] Adding temporary directory to Vite watcher: ${tempDir}`);
         server.watcher.add(tempDir);
+
+        // 添加一个 Vite 中间件来处理根路径的重定向
+        server.middlewares.use((req, res, next) => {
+          const url = req.url;
+          // 检查 URL 是否是根路径，并且没有语言前缀 (例如 /en/, /zh/)
+          // 还需要确保它不是对语言检测路由本身的请求
+          if (url === '/' || (url && !url.startsWith('/__i18n_detect_language__') && /^\/[a-z]{2}(?:\/.*)?$/.test(url) === false && url.split('/').length <= 2)) {
+            logger.info(`[astro-i18n] 攔截到未處理的根路徑請求: ${url}，重定向到語言檢測器`);
+            // 重定向到语言检测路由
+            res.writeHead(302, {
+              'Location': '/__i18n_detect_language__' + (req.url === '/' ? '' : req.url),
+            });
+            res.end();
+            return;
+          }
+          next();
+        });
       },
       'astro:build:setup': ({ logger }) => {
         logger?.info('[astro-i18n] 语言文件将在构建过程中按需加载');
