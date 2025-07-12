@@ -37,7 +37,7 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
           fs.mkdirSync(tempDir, { recursive: true });
         }
 
-        // 創建客戶端語言檢測和重定向處理器
+// Create client-side language detection and redirection processor
         const languageDetectorContent = `
 ---
 import { getAvailableLanguages } from "${path.resolve(__dirname, './translator.js').replace(/\\/g, '/')}";
@@ -49,22 +49,22 @@ const fallbackLang = "${fallbackLang}";
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>語言檢測中...</title>
+  <title>Language detection in progress...</title>
   <script define:vars={{ availableLanguages, fallbackLang }}>
-    // 客戶端語言檢測函數
+    // Client-side language detection function
     function detectLanguage() {
-      console.log('[astro-i18n] 開始客戶端語言檢測，可用語言:', availableLanguages.join(', '));
+      console.log('[astro-i18n] Starting client-side language detection, available languages:', availableLanguages.join(', '));
       
-      // 1. 檢查 URL 查詢參數
+      // 1. Check URL query parameter
       const urlParams = new URLSearchParams(window.location.search);
       const langParam = urlParams.get('lang');
       if (langParam && availableLanguages.includes(langParam)) {
-        console.log('[astro-i18n] 從 URL 參數檢測到語言:', langParam);
+        console.log('[astro-i18n] Language detected from URL parameter:', langParam);
         return langParam;
       }
 
-      // 2. 檢查 Cookie
-      console.log('[astro-i18n] 當前所有 Cookies:', document.cookie);
+      // 2. Check Cookie
+      console.log('[astro-i18n] All current Cookies:', document.cookie);
       const cookies = {};
       if (document.cookie) {
         document.cookie.split(';').forEach(cookie => {
@@ -74,60 +74,60 @@ const fallbackLang = "${fallbackLang}";
           }
         });
       }
-      console.log('[astro-i18n] 解析後的 Cookies:', JSON.stringify(cookies));
+      console.log('[astro-i18n] Parsed Cookies:', JSON.stringify(cookies));
       
       const cookieLang = cookies.lang;
       if (cookieLang && availableLanguages.includes(cookieLang)) {
-        console.log('[astro-i18n] 從 Cookie 檢測到語言:', cookieLang);
+        console.log('[astro-i18n] Language detected from Cookie:', cookieLang);
         return cookieLang;
       } else if (cookieLang) {
-        console.log('[astro-i18n] Cookie 中的語言無效:', cookieLang, '可用語言:', availableLanguages);
+        console.log('[astro-i18n] Invalid language in Cookie:', cookieLang, 'Available languages:', availableLanguages);
       } else {
-        console.log('[astro-i18n] 未找到語言 Cookie');
+        console.log('[astro-i18n] No language Cookie found');
       }
 
-      // 3. 檢查瀏覽器語言偏好
+      // 3. Check browser language preference
       const browserLangs = navigator.languages || [navigator.language];
       for (const browserLang of browserLangs) {
         const lang = browserLang.split('-')[0].toLowerCase();
         if (availableLanguages.includes(lang)) {
-          console.log('[astro-i18n] 從瀏覽器語言檢測到:', lang);
+          console.log('[astro-i18n] Detected from browser language:', lang);
           return lang;
         }
       }
 
-      // 4. 使用後備語言
-      console.log('[astro-i18n] 使用後備語言:', fallbackLang);
+      // 4. Use fallback language
+      console.log('[astro-i18n] Using fallback language:', fallbackLang);
       return fallbackLang;
     }
 
-    // 執行語言檢測和重定向
+    // Execute language detection and redirection
     const detectedLang = detectLanguage();
     
-    // 從查詢參數中獲取原始路徑
+    // Get original path from query parameters
     const urlParams = new URLSearchParams(window.location.search);
     const redirectPath = urlParams.get('redirect') || '/';
     
-    // 移除 redirect 參數，保留其他查詢參數
+    // Remove redirect parameter, keep other query parameters
     urlParams.delete('redirect');
     const remainingQuery = urlParams.toString();
     const queryString = remainingQuery ? '?' + remainingQuery : '';
     
-    // 構建目標路徑
+    // Construct target path
     const targetPath = '/' + detectedLang + (redirectPath === '/' ? '' : redirectPath);
     
-    console.log('[astro-i18n] 檢測到語言:', detectedLang, '重定向路徑:', redirectPath, '目標路徑:', targetPath);
+    console.log('[astro-i18n] Detected language:', detectedLang, 'Redirect path:', redirectPath, 'Target path:', targetPath);
     
-    // 設置語言 Cookie
+    // Set language Cookie
     document.cookie = \`lang=\${detectedLang}; path=/; max-age=31536000; samesite=lax\`;
     
-    // 重定向到語言版本
+    // Redirect to language version
     window.location.replace(targetPath + queryString);
   </script>
 </head>
 <body>
   <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
-    <p>正在檢測語言偏好...</p>
+    <p>Detecting language preference...</p>
     <p>Detecting language preference...</p>
   </div>
 </body>
@@ -138,7 +138,7 @@ const fallbackLang = "${fallbackLang}";
         fs.writeFileSync(detectorFilePath, languageDetectorContent, 'utf-8');
 
         if (fs.existsSync(pagesDir)) {
-          // 掃描所有頁面文件
+          // Scan all page files
           const scanPages = (dir: string, basePath = ''): Array<{path: string, file: string}> => {
             const pages: Array<{path: string, file: string}> = [];
             const entries = fs.readdirSync(dir);
@@ -162,39 +162,39 @@ const fallbackLang = "${fallbackLang}";
           };
 
           const userPages = scanPages(pagesDir);
-          logger.info(`發現頁面: ${userPages.map(p => p.path || 'index').join(', ')}`);
+          logger.info(`Found pages: ${userPages.map(p => p.path || 'index').join(', ')}`);
 
-          // 為每個頁面創建兩種路由：
-          // 將語言檢測路由注入到一個唯一的、不衝突的內部路徑
+          // Create two routes for each page:
+          // Inject the language detection route into a unique, non-conflicting internal path
           const detectorRoute = '/__i18n_detect_language__';
           injectRoute({
             pattern: detectorRoute,
             entrypoint: url.pathToFileURL(detectorFilePath).toString(),
           });
-          logger.info(`注入語言檢測路由: ${detectorRoute}`);
+          logger.info(`Injected language detection route: ${detectorRoute}`);
 
 
-          // 為每個頁面創建語言版本路由（/[lang]/path）
+          // Create language version routes for each page (/[lang]/path)
           for (const page of userPages) {
             const langRoute = page.path ? `/[lang]/${page.path}` : '/[lang]';
             
-            // 創建語言版本路由
+            // Create language version route
             const langFileName = `lang-${page.path.replace(/\//g, '-') || 'index'}.astro`;
             const langFilePath = path.join(tempDir, langFileName);
 
-            // 讀取原始頁面內容
+            // Read original page content
             const originalContent = fs.readFileSync(page.file, 'utf-8');
             
-            // 提取原始頁面的 prerender 導出
+            // Extract prerender export from the original page
             const prerenderMatch = originalContent.match(/export const prerender = (true|false);/);
             const prerenderExport = prerenderMatch ? `export const prerender = ${prerenderMatch[1]};` : '';
 
-            // 計算從臨時文件到原始頁面目錄的相對路徑，用於修正導入路徑
+            // Calculate relative path from temp file to original page directory for import path correction
             const originalPageDir = path.dirname(page.file);
             const tempFileDir = path.dirname(langFilePath);
             const relativePathToOriginal = path.relative(tempFileDir, originalPageDir).replace(/\\/g, '/');
 
-            // 創建一個包裝器頁面，它將導入原始頁面並設置語言上下文
+            // Create a wrapper page that imports the original page and sets the language context
             const wrapperContent = `---
 import { getStaticPaths as originalGetStaticPaths, getTranslator } from "${path.resolve(__dirname, './translator.js').replace(/\\/g, '/')}";
 import OriginalPage from "${relativePathToOriginal}/${path.basename(page.file)}";
@@ -212,7 +212,7 @@ export const getStaticPaths = async (context) => {
 const { lang } = Astro.params;
 const t = getTranslator(lang);
 
-// 設置語言上下文
+// Set language context
 Astro.locals.lang = lang;
 Astro.locals.t = t;
 ---
@@ -228,7 +228,7 @@ Astro.locals.t = t;
               entrypoint: url.pathToFileURL(langFilePath).toString(),
             });
 
-            logger.info(`注入語言路由: ${langRoute}`);
+            logger.info(`Injected language route: ${langRoute}`);
           }
         }
 
@@ -239,12 +239,12 @@ Astro.locals.t = t;
         logger.info(`Adding temporary directory to Vite watcher: ${tempDir}`);
         server.watcher.add(tempDir);
 
-        // 添加一个 Vite 中间件来处理根路径的重定向
+        // Add a Vite middleware to handle root path redirection
         server.middlewares.use((req, res, next) => {
           const url = req.url || '';
-          const pathname = url.split('?')[0]; // 移除查詢參數
+          const pathname = url.split('?')[0]; // Remove query parameters
           
-          // 跳過靜態資源和特殊路徑
+          // Skip static assets and special paths
           if (pathname.startsWith('/@') ||
               pathname.startsWith('/__') ||
               pathname.includes('.') ||
@@ -252,14 +252,14 @@ Astro.locals.t = t;
             return next();
           }
           
-          // 檢查是否已經有語言前綴 (例如 /en/, /zh/, /jp/)
+          // Check if there is already a language prefix (e.g., /en/, /zh/, /jp/)
           const pathParts = pathname.split('/').filter(Boolean);
-          const availableLanguages = ['en', 'zh', 'jp']; // 可以從 getAvailableLanguages() 獲取
+          const availableLanguages = ['en', 'zh', 'jp']; // Can be obtained from getAvailableLanguages()
           
-          // 如果第一個路徑段不是已知語言，則重定向到語言檢測器
+          // If the first path segment is not a known language, redirect to the language detector
           if (pathParts.length === 0 || !availableLanguages.includes(pathParts[0])) {
-            logger.info(`[astro-i18n] 攔截到無語言前綴的請求: ${pathname}，重定向到語言檢測器`);
-            // 將原始路徑作為查詢參數傳遞
+            logger.info(`[astro-i18n] Intercepted request without language prefix: ${pathname}, redirecting to language detector`);
+            // Pass the original path as a query parameter
             const originalQuery = url.includes('?') ? '&' + url.split('?')[1] : '';
             const redirectUrl = `/__i18n_detect_language__?redirect=${encodeURIComponent(pathname)}${originalQuery}`;
             res.writeHead(302, {
@@ -273,7 +273,7 @@ Astro.locals.t = t;
         });
       },
       'astro:build:setup': ({ logger }) => {
-        logger?.info('语言文件将在构建过程中按需加载');
+        logger?.info('Language files will be loaded on demand during build process');
         const rootDir = process.cwd();
         loadLocalesFrom(rootDir, localesDir, fallbackLang, logger);
       },

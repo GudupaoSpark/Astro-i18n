@@ -11,10 +11,10 @@ export interface Locals {
 }
 
 export interface AstroI18nOptions {
-  /** 是否自动重定向到语言URL，默认为true */
+  /** Whether to automatically redirect to the language URL, defaults to true */
   autoRedirect?: boolean;
-  localesDir?: string;       // 默認為 "locales"
-  fallbackLang?: string;     // 默認為 "en"
+  localesDir?: string;       // Defaults to "locales"
+  fallbackLang?: string;     // Defaults to "en"
   components?: {
     Layout?: string;
     LanguageSwitcher?: string;
