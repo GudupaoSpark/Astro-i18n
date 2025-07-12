@@ -1,5 +1,6 @@
 import type { AstroIntegration } from 'astro';
 import type { Locals, AstroI18nOptions } from './types.js';
+import path from 'path'; // 导入 path 模块
 // 导入 cookie 模块
 import { parse, serialize } from 'cookie';
 
@@ -28,6 +29,9 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
 
       'astro:server:setup': ({ server, logger }) => {
         logger?.info('[astro-i18n] 语言文件将在服务器处理请求时按需加载');
+        // 在服务器启动时或首次请求时强制加载语言文件
+        const rootDir = process.cwd(); // 获取当前工作目录
+        loadLocalesFrom(rootDir, localesDir, fallbackLang, logger); // 强制加载语言文件
         server.middlewares.use((req: any, res, next) => {
             console.log(`[astro-i18n] 处理请求: ${req.url}`);
 
@@ -107,7 +111,6 @@ if (!req.locals) req.locals = {};
               getAvailableLanguages: () => availableLangs,
               getCurrentLang: () => lang
             };
-
             next();
         });
       }

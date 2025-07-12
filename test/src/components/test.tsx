@@ -1,12 +1,8 @@
 import React from 'react';
 import { getTranslator } from '../../../src/translator.js';
 
-interface TestComponentProps {
-  lang?: string;
-}
 
-const TestComponent: React.FC<TestComponentProps> = ({ lang = 'en' }) => {
-  const t = getTranslator(lang);
+const TestComponent = ({ t }: { t: (key: string, params?: Record<string, string | number>) => string }) => {
   
 
   return (

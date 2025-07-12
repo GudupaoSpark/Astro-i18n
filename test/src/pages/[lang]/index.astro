@@ -21,7 +21,7 @@ console.log(`[${lang}] 翻譯hello: ${t("hello")}`);
     <p>Now language: {lang}</p>
     <p>i18n Test: {t("hello")}</p>
   </div>
-  <TestReact />
+  <TestReact t={t} />
   <TestAstro />
   <LanguageSwitcher lang={lang} />
 </Layout>
