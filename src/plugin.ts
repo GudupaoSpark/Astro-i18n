@@ -23,12 +23,12 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
   const fallbackLang = options.fallbackLang ?? 'en';
   const components = options.components || {};
 
-  console.log(`[astro-i18n] 插件初始化完成，语言文件将在首次翻译时自动加载`);
   return {
     name: 'astro-i18n',
     hooks: {
       'astro:config:setup': ({ injectRoute, updateConfig, config, logger }) => {
-        logger.info('[astro-i18n] Setting up automatic route detection...');
+        logger.info('Plugin initialized, language files will be loaded on first translation request.');
+        logger.info('Setting up automatic route detection...');
         
         const pagesDir = path.join(process.cwd(), 'src', 'pages');
         const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
@@ -152,7 +152,7 @@ const fallbackLang = "${fallbackLang}";
           };
 
           const userPages = scanPages(pagesDir);
-          logger.info(`[astro-i18n] 發現頁面: ${userPages.map(p => p.path || 'index').join(', ')}`);
+          logger.info(`發現頁面: ${userPages.map(p => p.path || 'index').join(', ')}`);
 
           // 為每個頁面創建兩種路由：
           // 將語言檢測路由注入到一個唯一的、不衝突的內部路徑
@@ -161,7 +161,7 @@ const fallbackLang = "${fallbackLang}";
             pattern: detectorRoute,
             entrypoint: url.pathToFileURL(detectorFilePath).toString(),
           });
-          logger.info(`[astro-i18n] 注入語言檢測路由: ${detectorRoute}`);
+          logger.info(`注入語言檢測路由: ${detectorRoute}`);
 
 
           // 為每個頁面創建語言版本路由（/[lang]/path）
@@ -218,15 +218,15 @@ Astro.locals.t = t;
               entrypoint: url.pathToFileURL(langFilePath).toString(),
             });
 
-            logger.info(`[astro-i18n] 注入語言路由: ${langRoute}`);
+            logger.info(`注入語言路由: ${langRoute}`);
           }
         }
 
-        logger.info('[astro-i18n] Automatic route detection completed.');
+        logger.info('Automatic route detection completed.');
       },
       'astro:server:setup': ({ server, logger }) => {
         const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
-        logger.info(`[astro-i18n] Adding temporary directory to Vite watcher: ${tempDir}`);
+        logger.info(`Adding temporary directory to Vite watcher: ${tempDir}`);
         server.watcher.add(tempDir);
 
         // 添加一个 Vite 中间件来处理根路径的重定向
@@ -235,7 +235,7 @@ Astro.locals.t = t;
           // 检查 URL 是否是根路径，并且没有语言前缀 (例如 /en/, /zh/)
           // 还需要确保它不是对语言检测路由本身的请求
           if (url === '/' || (url && !url.startsWith('/__i18n_detect_language__') && /^\/[a-z]{2}(?:\/.*)?$/.test(url) === false && url.split('/').length <= 2)) {
-            logger.info(`[astro-i18n] 攔截到未處理的根路徑請求: ${url}，重定向到語言檢測器`);
+            logger.info(`Intercepted unhandled root path request: ${url}, redirecting to language detector.`);
             // 重定向到语言检测路由
             res.writeHead(302, {
               'Location': '/__i18n_detect_language__' + (req.url === '/' ? '' : req.url),
@@ -247,7 +247,7 @@ Astro.locals.t = t;
         });
       },
       'astro:build:setup': ({ logger }) => {
-        logger?.info('[astro-i18n] 语言文件将在构建过程中按需加载');
+        logger?.info('语言文件将在构建过程中按需加载');
         const rootDir = process.cwd();
         loadLocalesFrom(rootDir, localesDir, fallbackLang, logger);
       },
@@ -255,7 +255,7 @@ Astro.locals.t = t;
         const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
         if (fs.existsSync(tempDir)) {
           fs.rmSync(tempDir, { recursive: true, force: true });
-          logger.info('[astro-i18n] Cleaned up temporary i18n page directory.');
+          logger.info('Cleaned up temporary i18n page directory.');
         }
       }
     }

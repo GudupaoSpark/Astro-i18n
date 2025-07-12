@@ -4,11 +4,8 @@ import Layout from '../layouts/Layout.astro';
 import TestAstro from '../components/test.astro';
 import TestReact from '../components/test';
 
-// 靜態模式下默認使用英文
 const lang = Astro.params.lang || 'en';
 const t = getTranslator(lang);
-
-console.log(`[${lang}] 翻譯hello: ${t("hello")}`);
 ---
 
 <Layout title={`${t("hello")} - Astro i18n`}>
