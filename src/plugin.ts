@@ -30,7 +30,7 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
         logger.info('Plugin initialized, language files will be loaded on first translation request.');
         logger.info('Setting up automatic route detection...');
         
-        const pagesDir = path.join(process.cwd(), 'src', 'pages');
+        const pagesDir = path.join(url.fileURLToPath(config.srcDir), 'pages');
         const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
         
         if (!fs.existsSync(tempDir)) {
