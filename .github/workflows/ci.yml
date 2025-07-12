@@ -23,24 +23,26 @@ jobs:
 
     - name: Install pnpm
       run: npm install -g pnpm
-    
+    - name: Get the release tag
+      id: get_tag
+      run: |
+        TAG_NAME=${GITHUB_REF##*/}
+        echo "RELEASE_TAG=$TAG_NAME" >> $GITHUB_ENV
+
+    - name: Update package.json version with release tag
+      run: |
+        sed -i "s/0.0.0/${{ env.RELEASE_TAG }}/g" package.json
+        cat package.json
+    - run: cat package.json
+
     - name: Install dependencies
       run: pnpm install
 
+
+
     - name: Build main package
       run: pnpm run build
-
-    - name: Get version from tag
-      id: get_version
-      run: echo "VERSION=$(echo ${{ github.ref }} | sed 's/refs\/tags\/v//')" >> $GITHUB_OUTPUT
-
-    - name: Update package.json version
-      run: |
-        VERSION=${{ steps.get_version.outputs.VERSION }}
-        node -p "((p)=>{p.version='$VERSION'; return JSON.stringify(p, null, 2);})(require('./package.json'))" > package.json.tmp && mv package.json.tmp package.json
-
-
     - name: Publish to npm
-      run: npm publish --no-git-checks
+      run: pnpm publish . --no-git-checks
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
