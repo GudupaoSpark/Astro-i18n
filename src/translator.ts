@@ -150,10 +150,32 @@ export function getTranslator(lang: string): (key: string, params?: Record<strin
     const dict = localesCache[lang] || {};
     const fallbackDict = localesCache[fallbackLang] || {};
 
+    // Helper function to get nested value from object using dot notation
+    const getNestedValue = (obj: any, key: string): string | undefined => {
+      // First try direct key access for backward compatibility
+      if (key in obj) {
+        return obj[key];
+      }
+      
+      // Then try nested access using dot notation
+      const keys = key.split('.');
+      let value = obj;
+      
+      for (const k of keys) {
+        if (value && typeof value === 'object' && k in value) {
+          value = value[k];
+        } else {
+          return undefined;
+        }
+      }
+      
+      return typeof value === 'string' ? value : undefined;
+    };
+
     // Attempt to get translation text, use fallback language or key itself if not found
-    let text = dict[key];
+    let text = getNestedValue(dict, key);
     if (text === undefined) {
-      text = fallbackDict[key];
+      text = getNestedValue(fallbackDict, key);
       if (text === undefined) {
         // If not found in fallback language either, use the key itself
         throw new Error(`Translation not found: ${key} (Language: ${lang}, Fallback language: ${fallbackLang})`);
@@ -184,7 +206,31 @@ export function getTranslations(lang: string): Record<string, string> {
 
 // Helper function: Check if key exists in translations
 export function hasTranslation(lang: string, key: string): boolean {
-  return key in (localesCache[lang] || {}) || key in (localesCache[fallbackLang] || {});
+  const checkNestedKey = (obj: any, key: string): boolean => {
+    // First try direct key access
+    if (key in obj) {
+      return true;
+    }
+    
+    // Then try nested access using dot notation
+    const keys = key.split('.');
+    let value = obj;
+    
+    for (const k of keys) {
+      if (value && typeof value === 'object' && k in value) {
+        value = value[k];
+      } else {
+        return false;
+      }
+    }
+    
+    return typeof value === 'string';
+  };
+
+  const dict = localesCache[lang] || {};
+  const fallbackDict = localesCache[fallbackLang] || {};
+  
+  return checkNestedKey(dict, key) || checkNestedKey(fallbackDict, key);
 }
 
 // Helper function: Get all loaded languages
