@@ -1,18 +1,14 @@
 ---
-import TestAstro from "../../components/test.astro";
-import TestReact from "../../components/test.jsx";
-import Layout from "../../layouts/Layout.astro";
-import LanguageSwitcher from "../../components/LanguageSwitcher.astro";
-import { getTranslator, getStaticPaths } from "../../../../src/index";
+import { getTranslator } from '../../../src/translator.js';
+import Layout from '../layouts/Layout.astro';
+import LanguageSwitcher from '../components/LanguageSwitcher.astro';
+import TestAstro from '../components/test.astro';
+import TestReact from '../components/test';
 
-export {getStaticPaths};
-
-const { lang } = Astro.params;
-
-// 獲取正確的翻譯函數
+// 靜態模式下默認使用英文
+const lang = 'en';
 const t = getTranslator(lang);
 
-// 調試輸出
 console.log(`[${lang}] 翻譯hello: ${t("hello")}`);
 ---
 
@@ -21,6 +17,7 @@ console.log(`[${lang}] 翻譯hello: ${t("hello")}`);
     <p>Now language: {lang}</p>
     <p>i18n Test: {t("hello")}</p>
   </div>
+  
   <TestReact t={t} />
   <TestAstro />
   <LanguageSwitcher lang={lang} />

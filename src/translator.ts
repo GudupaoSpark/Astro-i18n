@@ -191,7 +191,31 @@ export function getAvailableLanguages(): string[] {
 
 // 辅助函数：为 Astro 的 getStaticPaths 生成路径
 export function getStaticPaths() {
-  const languages = getAvailableLanguages();
+  // 確保在構建時正確加載語言文件
+  if (!loaded) {
+    const rootDir = process.cwd();
+    // 嘗試多個可能的語言文件路徑
+    const possiblePaths = [
+      'locales',
+      './locales',
+      'test/locales',
+      '../locales'
+    ];
+    
+    for (const localesPath of possiblePaths) {
+      const fullPath = path.join(rootDir, localesPath);
+      if (fs.existsSync(fullPath)) {
+        console.log(`[astro-i18n] 在構建時加載語言文件從: ${fullPath}`);
+        loadLocalesFrom(rootDir, localesPath, fallbackLang, console);
+        loaded = true;
+        break;
+      }
+    }
+  }
+  
+  const languages = Object.keys(localesCache);
+  console.log(`[astro-i18n] getStaticPaths 生成路徑: ${languages.join(', ')}`);
+  
   return languages.map((lang) => ({
     params: { lang },
   }));

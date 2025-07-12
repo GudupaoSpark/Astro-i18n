@@ -15,4 +15,10 @@ export interface AstroI18nOptions {
   autoRedirect?: boolean;
   localesDir?: string;       // 默認為 "locales"
   fallbackLang?: string;     // 默認為 "en"
+  components?: {
+    Layout?: string;
+    LanguageSwitcher?: string;
+    TestAstro?: string;
+    TestReact?: string;
+  };
 }

@@ -31,6 +31,12 @@ const { lang } = Astro.props;
   >
     中文
   </button>
+    <button
+    onclick="switchLanguage('jp')"
+    class={lang === 'jp' ? 'active' : ''}
+  >
+    日本語
+  </button>
 </div>
 
 <style>
