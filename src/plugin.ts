@@ -100,6 +100,7 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
             // 设置语言在请求locals中
             // 获取翻译函数
             // 设置语言和翻译函数在请求locals中
+if (!req.locals) req.locals = {};
             req.locals.lang = lang;
             req.locals.isLangInPath = isLangInPath;
             req.locals.i18n = {
