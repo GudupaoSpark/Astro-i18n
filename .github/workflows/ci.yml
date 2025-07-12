@@ -12,6 +12,9 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Remove test directory
+      run: rm -rf test
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
