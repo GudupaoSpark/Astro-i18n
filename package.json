@@ -1,6 +1,6 @@
 {
   "name": "@gudupao/astro-i18n",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "type": "module",
   "description": "Astro i18n 插件，支援 {{t.xxx}}，本地語言包、語言切換、SSR/SSG 通用。",
   "main": "./dist/index.js",

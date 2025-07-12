@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm' # Use pnpm for caching
+
+    - name: Install pnpm
+      run: npm install -g pnpm
+
+    - name: Install dependencies (root)
+      run: pnpm install
+
+    - name: Build main package
+      run: pnpm run build
+
+    - name: Install dependencies (test project)
+      run: pnpm install --dir test
+
+    - name: Build test project
+      run: pnpm run build --dir test
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        registry-url: 'https://registry.npmjs.org/'
+
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=$(echo ${{ github.ref }} | sed 's/refs\/tags\/v//')" >> $GITHUB_OUTPUT
+
+    - name: Update package.json version
+      run: |
+        VERSION=${{ steps.get_version.outputs.VERSION }}
+        node -p "((p)=>{p.version='$VERSION'; return JSON.stringify(p, null, 2);})(require('./package.json'))" > package.json.tmp && mv package.json.tmp package.json
+
+    - name: Install pnpm
+      run: npm install -g pnpm
+
+    - name: Install dependencies
+      run: pnpm install
+
+    - name: Publish to npm
+      run: pnpm publish --no-git-tag-version
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
