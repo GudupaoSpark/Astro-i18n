@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 
-import url from 'url';
 let _logger: any = console; // Defaults to console, updates if a logger is provided
 let localesCache: Record<string, Record<string, string>> = {};
 let fallbackLang = 'en';
@@ -9,7 +8,7 @@ let loaded = false; // Add global loading status flag
 
 
 // Function to load language files
-export async function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en', logger?: any): Promise<void> {
+export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en', logger?: any): void {
   fallbackLang = fallback;
   let localesDir = path.join(rootDir, dir);
 
@@ -61,8 +60,8 @@ export async function loadLocalesFrom(rootDir: string, dir = 'locales', fallback
     // Read directory contents
     const dirEntries = fs.readdirSync(localesDir);
 
-    // Filter out JSON and JS files
-    const files = dirEntries.filter((file: string) => file.endsWith('.json') || file.endsWith('.js'));
+    // Filter out JSON files
+    const files = dirEntries.filter((file: string) => file.endsWith('.json'));
 
     // Check for language subdirectories
     const subDirs = dirEntries.filter(entry => {
@@ -83,23 +82,13 @@ export async function loadLocalesFrom(rootDir: string, dir = 'locales', fallback
 
       try {
         _logger.info(`Attempting to load language file: ${filePath}`);
-        let translations: Record<string, string>;
-        if (filePath.endsWith('.json')) {
-          const content = fs.readFileSync(filePath, 'utf-8');
-          translations = JSON.parse(content) as Record<string, string>;
-        } else {
-          // Import the JS file
-          const module = await import(/* @vite-ignore */ url.pathToFileURL(filePath).toString());
-          translations = module.default as Record<string, string>;
-        }
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const translations = JSON.parse(content) as Record<string, string>;
 
-        // Use language code without file extension as key
-        const langKey = file.replace(/\.(json|js)$/, '').toLowerCase();
-        
         // Merge instead of replacing existing translations
-        localesCache[langKey] = { ...(localesCache[langKey] || {}), ...translations };
+        localesCache[lang] = { ...(localesCache[lang] || {}), ...translations };
 
-        _logger.info(`Loaded language: ${langKey} (${Object.keys(translations).length} entries)`);
+        _logger.info(`Loaded language: ${lang} (${Object.keys(translations).length} entries)`);
         _logger.info(`Language file content example: ${JSON.stringify(Object.entries(translations).slice(0, 2))}`);
       } catch (error) {
         _logger.info(`Failed to load ${file}:`, error);
@@ -164,9 +153,9 @@ export function getTranslator(lang: string): (key: string, params?: Record<strin
     // Helper function to get nested value from object using dot notation
     const getNestedValue = (obj: any, key: string): string | undefined => {
       // First try direct key access for backward compatibility
-      
-      
-      
+      if (key in obj) {
+        return obj[key];
+      }
       
       // Then try nested access using dot notation
       const keys = key.split('.');
@@ -189,8 +178,7 @@ export function getTranslator(lang: string): (key: string, params?: Record<strin
       text = getNestedValue(fallbackDict, key);
       if (text === undefined) {
         // If not found in fallback language either, use the key itself
-        _logger.info('localesCache:', localesCache);
-        _logger.info(`Translation not found: ${key} (Language: ${lang}, Fallback language: ${fallbackLang})`);
+        throw new Error(`Translation not found: ${key} (Language: ${lang}, Fallback language: ${fallbackLang})`);
         text = key;
       } else {
         // Found translation from fallback language
@@ -257,7 +245,7 @@ export function getAvailableLanguages(): string[] {
 }
 
 // Helper function: Generate paths for Astro's getStaticPaths
-export async function getStaticPaths() {
+export function getStaticPaths() {
   // Ensure language files are loaded correctly during build
   if (!loaded) {
     const rootDir = process.cwd();
@@ -273,31 +261,15 @@ export async function getStaticPaths() {
       const fullPath = path.join(rootDir, localesPath);
       if (fs.existsSync(fullPath)) {
         _logger.info(`Loading language files from: ${fullPath} during build`);
-        await loadLocalesFrom(rootDir, localesPath, fallbackLang, _logger);
+        loadLocalesFrom(rootDir, localesPath, fallbackLang, _logger);
         loaded = true;
         break;
-      }
-    }
-    
-    // If still not loaded, force load with default path
-    if (!loaded) {
-      const defaultPath = path.join(rootDir, 'locales');
-      if (fs.existsSync(defaultPath)) {
-        _logger.info(`Loading language files from default path: ${defaultPath}`);
-        await loadLocalesFrom(rootDir, 'locales', fallbackLang, _logger);
-        loaded = true;
       }
     }
   }
   
   const languages = Object.keys(localesCache);
   _logger.info(`getStaticPaths generating paths: ${languages.join(', ')}`);
-  
-  // Ensure we have at least the fallback language
-  if (languages.length === 0) {
-    _logger.info(`No languages loaded, returning fallback language: ${fallbackLang}`);
-    return [{ params: { lang: fallbackLang } }];
-  }
   
   return languages.map((lang) => ({
     params: { lang },
