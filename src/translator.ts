@@ -201,7 +201,18 @@ export function getTranslator(lang: string): (key: string, params?: Record<strin
 
 // Helper function: Get all translations for the current language
 export function getTranslations(lang: string): Record<string, string> {
-  return localesCache[lang] || {};
+  const langTranslations = localesCache[lang] || {};
+  const fallbackTranslations = localesCache[fallbackLang] || {};
+
+  // Merge fallback translations into the language translations
+  // The fallback's value is used only if the key does not exist in the language's translations
+  return { ...fallbackTranslations, ...langTranslations };
+}
+
+export function getComponentProps(lang: string) {
+  return {
+    translations: getTranslations(lang),
+  };
 }
 
 // Helper function: Check if key exists in translations

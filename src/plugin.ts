@@ -1,4 +1,4 @@
-import type { AstroIntegration } from 'astro';
+import type { AstroIntegration, AstroConfig } from 'astro';
 import type { Locals, AstroI18nOptions } from './types.js';
 import path from 'path';
 import url from 'url';
@@ -23,10 +23,66 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
   const fallbackLang = options.fallbackLang ?? 'en';
   const components = options.components || {};
 
+  let userPages: Array<{path: string, file: string}> = [];
+  let astroConfig: AstroConfig;
+
+  function createRedirectHtml(availableLanguages: string[], fallbackLang: string): string {
+    const clientLanguageDetector = `
+      function detectLanguage(availableLanguages, fallbackLang) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const langParam = urlParams.get('lang');
+        if (langParam && availableLanguages.includes(langParam)) return langParam;
+
+        const cookies = {};
+        if (document.cookie) {
+          document.cookie.split(';').forEach(cookie => {
+            const parts = cookie.trim().split('=');
+            if (parts.length === 2) cookies[parts[0]] = decodeURIComponent(parts[1]);
+          });
+        }
+        const cookieLang = cookies.lang;
+        if (cookieLang && availableLanguages.includes(cookieLang)) return cookieLang;
+
+        const browserLangs = navigator.languages || [navigator.language];
+        for (const browserLang of browserLangs) {
+          const lang = browserLang.split('-')[0].toLowerCase();
+          if (availableLanguages.includes(lang)) return lang;
+        }
+        return fallbackLang;
+      }
+    `;
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Redirecting...</title>
+  <script>
+    (function() {
+      const availableLanguages = ${JSON.stringify(availableLanguages)};
+      const fallbackLang = "${fallbackLang}";
+      ${clientLanguageDetector}
+      const detectedLang = detectLanguage(availableLanguages, fallbackLang);
+      const pathName = window.location.pathname;
+      const search = window.location.search;
+      document.cookie = \`lang=\${detectedLang}; path=/; max-age=31536000; samesite=lax\`;
+      const targetPath = '/' + detectedLang + (pathName === '/' ? '' : pathName);
+      const redirectUrl = targetPath + search;
+      window.location.replace(redirectUrl);
+    })();
+  </script>
+</head>
+<body>
+  <p>Redirecting to your preferred language...</p>
+</body>
+</html>`;
+  }
+
   return {
     name: 'astro-i18n',
     hooks: {
       'astro:config:setup': ({ injectRoute, updateConfig, config, logger }) => {
+        astroConfig = config;
         logger.info('Plugin initialized, language files will be loaded on first translation request.');
         logger.info('Setting up automatic route detection...');
         
@@ -36,106 +92,6 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
         if (!fs.existsSync(tempDir)) {
           fs.mkdirSync(tempDir, { recursive: true });
         }
-
-// Create client-side language detection and redirection processor
-        const languageDetectorContent = `
----
-import { getAvailableLanguages } from "${path.resolve(__dirname, './translator.js').replace(/\\/g, '/')}";
-
-const availableLanguages = getAvailableLanguages();
-const fallbackLang = "${fallbackLang}";
----
-
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Language detection in progress...</title>
-  <script define:vars={{ availableLanguages, fallbackLang }}>
-    // Client-side language detection function
-    function detectLanguage() {
-      console.log('[astro-i18n] Starting client-side language detection, available languages:', availableLanguages.join(', '));
-      
-      // 1. Check URL query parameter
-      const urlParams = new URLSearchParams(window.location.search);
-      const langParam = urlParams.get('lang');
-      if (langParam && availableLanguages.includes(langParam)) {
-        console.log('[astro-i18n] Language detected from URL parameter:', langParam);
-        return langParam;
-      }
-
-      // 2. Check Cookie
-      console.log('[astro-i18n] All current Cookies:', document.cookie);
-      const cookies = {};
-      if (document.cookie) {
-        document.cookie.split(';').forEach(cookie => {
-          const parts = cookie.trim().split('=');
-          if (parts.length === 2) {
-            cookies[parts[0]] = decodeURIComponent(parts[1]);
-          }
-        });
-      }
-      console.log('[astro-i18n] Parsed Cookies:', JSON.stringify(cookies));
-      
-      const cookieLang = cookies.lang;
-      if (cookieLang && availableLanguages.includes(cookieLang)) {
-        console.log('[astro-i18n] Language detected from Cookie:', cookieLang);
-        return cookieLang;
-      } else if (cookieLang) {
-        console.log('[astro-i18n] Invalid language in Cookie:', cookieLang, 'Available languages:', availableLanguages);
-      } else {
-        console.log('[astro-i18n] No language Cookie found');
-      }
-
-      // 3. Check browser language preference
-      const browserLangs = navigator.languages || [navigator.language];
-      for (const browserLang of browserLangs) {
-        const lang = browserLang.split('-')[0].toLowerCase();
-        if (availableLanguages.includes(lang)) {
-          console.log('[astro-i18n] Detected from browser language:', lang);
-          return lang;
-        }
-      }
-
-      // 4. Use fallback language
-      console.log('[astro-i18n] Using fallback language:', fallbackLang);
-      return fallbackLang;
-    }
-
-    // Execute language detection and redirection
-    const detectedLang = detectLanguage();
-    
-    // Get original path from query parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const redirectPath = urlParams.get('redirect') || '/';
-    
-    // Remove redirect parameter, keep other query parameters
-    urlParams.delete('redirect');
-    const remainingQuery = urlParams.toString();
-    const queryString = remainingQuery ? '?' + remainingQuery : '';
-    
-    // Construct target path
-    const targetPath = '/' + detectedLang + (redirectPath === '/' ? '' : redirectPath);
-    
-    console.log('[astro-i18n] Detected language:', detectedLang, 'Redirect path:', redirectPath, 'Target path:', targetPath);
-    
-    // Set language Cookie
-    document.cookie = \`lang=\${detectedLang}; path=/; max-age=31536000; samesite=lax\`;
-    
-    // Redirect to language version
-    window.location.replace(targetPath + queryString);
-  </script>
-</head>
-<body>
-  <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
-    <p>Detecting language preference...</p>
-    <p>Detecting language preference...</p>
-  </div>
-</body>
-</html>
-        `;
-
-        const detectorFilePath = path.join(tempDir, 'language-detector.astro');
-        fs.writeFileSync(detectorFilePath, languageDetectorContent, 'utf-8');
 
         if (fs.existsSync(pagesDir)) {
           // Scan all page files
@@ -149,7 +105,7 @@ const fallbackLang = "${fallbackLang}";
               
               if (stat.isDirectory()) {
                 pages.push(...scanPages(fullPath, path.join(basePath, entry)));
-              } else if (entry.endsWith('.astro') && !entry.startsWith('[') && entry !== '404.astro') {
+              } else if (entry.endsWith('.astro') && !entry.endsWith('.ni.astro') && !entry.startsWith('[') && entry !== '404.astro') {
                 const pagePath = path.join(basePath, entry.replace('.astro', ''));
                 pages.push({
                   path: pagePath === 'index' ? '' : pagePath,
@@ -161,18 +117,8 @@ const fallbackLang = "${fallbackLang}";
             return pages;
           };
 
-          const userPages = scanPages(pagesDir);
+          userPages = scanPages(pagesDir);
           logger.info(`Found pages: ${userPages.map(p => p.path || 'index').join(', ')}`);
-
-          // Create two routes for each page:
-          // Inject the language detection route into a unique, non-conflicting internal path
-          const detectorRoute = '/__i18n_detect_language__';
-          injectRoute({
-            pattern: detectorRoute,
-            entrypoint: url.pathToFileURL(detectorFilePath).toString(),
-          });
-          logger.info(`Injected language detection route: ${detectorRoute}`);
-
 
           // Create language version routes for each page (/[lang]/path)
           for (const page of userPages) {
@@ -241,35 +187,25 @@ Astro.locals.t = t;
 
         // Add a Vite middleware to handle root path redirection
         server.middlewares.use((req, res, next) => {
-          const url = req.url || '';
-          const pathname = url.split('?')[0]; // Remove query parameters
-          
-          // Skip static assets and special paths
-          if (pathname.startsWith('/@') ||
-              pathname.startsWith('/__') ||
-              pathname.includes('.') ||
-              pathname.startsWith('/node_modules')) {
+          const reqUrl = req.url || '';
+          const pathname = reqUrl.split('?')[0];
+
+          if (pathname.startsWith('/@') || pathname.startsWith('/__') || pathname.includes('.') || pathname.startsWith('/node_modules')) {
+            return next();
+          }
+
+          const pathParts = pathname.split('/').filter(Boolean);
+          const availableLanguages = getAvailableLanguages();
+
+          if (pathParts.length > 0 && availableLanguages.includes(pathParts[0])) {
             return next();
           }
           
-          // Check if there is already a language prefix (e.g., /en/, /zh/, /jp/)
-          const pathParts = pathname.split('/').filter(Boolean);
-          const availableLanguages = ['en', 'zh', 'jp']; // Can be obtained from getAvailableLanguages()
-          
-          // If the first path segment is not a known language, redirect to the language detector
-          if (pathParts.length === 0 || !availableLanguages.includes(pathParts[0])) {
-            logger.info(`[astro-i18n] Intercepted request without language prefix: ${pathname}, redirecting to language detector`);
-            // Pass the original path as a query parameter
-            const originalQuery = url.includes('?') ? '&' + url.split('?')[1] : '';
-            const redirectUrl = `/__i18n_detect_language__?redirect=${encodeURIComponent(pathname)}${originalQuery}`;
-            res.writeHead(302, {
-              'Location': redirectUrl,
-            });
-            res.end();
-            return;
-          }
-          
-          next();
+          logger.info(`[astro-i18n] Intercepted request without language prefix: ${pathname}, serving language detector`);
+
+          const redirectContent = createRedirectHtml(availableLanguages, fallbackLang);
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end(redirectContent);
         });
       },
       'astro:build:setup': ({ logger }) => {
@@ -277,12 +213,95 @@ Astro.locals.t = t;
         const rootDir = process.cwd();
         loadLocalesFrom(rootDir, localesDir, fallbackLang, logger);
       },
-      'astro:build:done': ({ logger }) => {
+      'astro:build:done': ({ dir, logger }) => {
         const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
         if (fs.existsSync(tempDir)) {
           fs.rmSync(tempDir, { recursive: true, force: true });
           logger.info('Cleaned up temporary i18n page directory.');
         }
+
+        logger.info('Creating root redirect pages for static build...');
+        const destDir = url.fileURLToPath(dir);
+// Handle 404 page
+        logger.info('Ensuring 404.html is correctly placed...');
+        const astro404Path = path.join(destDir, '404.html');
+
+        if (fs.existsSync(astro404Path)) {
+            logger.info('Verified: 404.html found in build output.');
+        } else {
+            const nested404Path = path.join(destDir, '404', 'index.html');
+            if (fs.existsSync(nested404Path)) {
+                fs.renameSync(nested404Path, astro404Path);
+                try {
+                    fs.rmdirSync(path.join(destDir, '404'));
+                } catch (e) {
+                    // Ignore error if directory is not empty for some reason
+                }
+                logger.info('Moved /404/index.html to /404.html.');
+            } else {
+                logger.info('No 404.astro page found or built. Skipping 404 page handling.');
+            }
+        }
+        const availableLanguages = getAvailableLanguages();
+
+        if (availableLanguages.length === 0) {
+          logger.info('No languages found, skipping redirect page generation.');
+          return;
+        }
+
+        const redirectContent = createRedirectHtml(availableLanguages, fallbackLang);
+
+        for (const page of userPages) {
+          const firstPart = page.path.split('/')[0];
+          if (availableLanguages.includes(firstPart)) {
+            continue;
+          }
+
+          const pagePath = page.path === '' ? 'index.html' : path.join(page.path, 'index.html');
+          const filePath = path.join(destDir, pagePath);
+          
+          fs.mkdirSync(path.dirname(filePath), { recursive: true });
+          
+          fs.writeFileSync(filePath, redirectContent, 'utf-8');
+          logger.info(`Created redirect page: /${page.path || ''} -> ${filePath.replace(destDir, '')}`);
+        }
+        logger.info('Redirect pages created.');
+
+        // Cleanup .ni files after build to avoid duplicates.
+        const cleanupNiFiles = (currentDir: string) => {
+          // First, recurse into subdirectories.
+          const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+          for (const entry of entries) {
+            if (entry.isDirectory()) {
+              cleanupNiFiles(path.join(currentDir, entry.name));
+            }
+          }
+          
+          // Then, process files and directories in the current directory.
+          // This post-order traversal ensures we handle contents before their parent directories.
+          const currentEntries = fs.readdirSync(currentDir, { withFileTypes: true });
+          for (const entry of currentEntries) {
+            if (entry.name.includes('.ni')) {
+              const oldPath = path.join(currentDir, entry.name);
+              const newName = entry.name.replace(/\.ni/g, '');
+              const newPath = path.join(currentDir, newName);
+
+              if (fs.existsSync(newPath)) {
+                // If the non-.ni version already exists, the .ni version is a duplicate. Remove it.
+                fs.rmSync(oldPath, { recursive: true, force: true });
+                logger.info(`Removed duplicate .ni path: ${oldPath}`);
+              } else {
+                // Otherwise, just rename it.
+                fs.renameSync(oldPath, newPath);
+                logger.info(`Renamed ${oldPath} to ${newPath}`);
+              }
+            }
+          }
+        };
+
+        logger.info('Cleaning up .ni files...');
+        cleanupNiFiles(destDir);
+        logger.info('Finished cleaning up .ni files.');
       }
     }
   };

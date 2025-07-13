@@ -1,5 +1,5 @@
 ---
-import { getTranslator } from '../../../src/translator.js';
+import { getTranslator, getTranslations } from '../../../src/translator.js';
 import Layout from '../layouts/Layout.astro';
 import TestAstro from '../components/test.astro';
 import TestReact from '../components/test';
@@ -14,7 +14,7 @@ const t = getTranslator(lang);
     <p>i18n Test: {t("hello")}</p>
   </div>
   
-  <TestReact t={t} />
+  <TestReact translations={getTranslations(lang)} />
   <TestAstro />
 </Layout>
 
