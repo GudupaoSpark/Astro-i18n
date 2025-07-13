@@ -27,7 +27,12 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
     name: 'astro-i18n',
     hooks: {
       'astro:config:setup': ({ injectRoute, updateConfig, config, logger }) => {
-        logger.info('Plugin initialized, language files will be loaded on first translation request.');
+        logger.info('Plugin initialized, loading language files...');
+        
+        // Load language files during setup
+        const rootDir = process.cwd();
+        loadLocalesFrom(rootDir, localesDir, fallbackLang, logger);
+        
         logger.info('Setting up automatic route detection...');
         
         const pagesDir = path.join(url.fileURLToPath(config.srcDir), 'pages');
@@ -202,11 +207,8 @@ import OriginalPage from "${relativePathToOriginal}/${path.basename(page.file)}"
 ${prerenderExport}
 
 export const getStaticPaths = async (context) => {
-  if (originalGetStaticPaths) {
-    const paths = await originalGetStaticPaths(context);
-    return paths.map(p => ({ ...p, params: { ...p.params, lang: p.params?.lang || '' } }));
-  }
-  return [];
+  const paths = await originalGetStaticPaths(context);
+  return paths;
 };
 
 const { lang } = Astro.params;
@@ -273,7 +275,7 @@ Astro.locals.t = t;
         });
       },
       'astro:build:setup': ({ logger }) => {
-        logger?.info('Language files will be loaded on demand during build process');
+        logger?.info('Loading language files during build setup');
         const rootDir = process.cwd();
         loadLocalesFrom(rootDir, localesDir, fallbackLang, logger);
       },
