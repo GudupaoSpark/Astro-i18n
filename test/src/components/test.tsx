@@ -1,5 +1,6 @@
 import React from 'react';
-import { createClientTranslator, Translations } from '../../../src/client.js';
+import { createClientTranslator } from '../../../src/client.js';
+import type { Translations } from '../../../src/index.js';
 
 const TestComponent = ({ translations }: { translations: Translations }) => {
   const t = createClientTranslator(translations);

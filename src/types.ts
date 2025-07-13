@@ -1,4 +1,6 @@
 export type LocaleMap = Record<string, string>;
+export type Translations = Record<string, any>;
+
 export interface I18nHelper {
   getAvailableLanguages: () => string[];
   getCurrentLang: () => string;

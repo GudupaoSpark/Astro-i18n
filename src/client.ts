@@ -1,5 +1,4 @@
-export type Translations = Record<string, any>;
-
+import { Translations } from './types.js';
 export const createClientTranslator = (
   translations: Translations
 ) => {
