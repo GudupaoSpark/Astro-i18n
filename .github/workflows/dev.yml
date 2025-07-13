@@ -25,10 +25,10 @@ jobs:
     - name: Install pnpm
       run: npm install -g pnpm
 
-    - name: Update package.json version for dev build
+    - name: Update package.json version with timestamp for dev build
       run: |
-        SHORT_SHA=$(git rev-parse --short HEAD)
-        npm version "0.0.0-dev.$SHORT_SHA" --no-git-tag-version --allow-same-version
+        TIMESTAMP=$(date +%s)
+        npm version "0.0.0-dev.$TIMESTAMP" --no-git-tag-version --allow-same-version
         echo "Updated package.json to dev version:"
         cat package.json
 
