@@ -28,7 +28,7 @@ jobs:
     - name: Update package.json version with timestamp for dev build
       run: |
         TIMESTAMP=$(date +%s)
-        npm version "$TIMESTAMP" --no-git-tag-version --allow-same-version
+        npm version "dev.$TIMESTAMP" --no-git-tag-version --allow-same-version
         echo "Updated package.json to dev version:"
         cat package.json
 
