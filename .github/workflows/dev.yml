@@ -1,0 +1,44 @@
+name: Dev Build
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Remove test directory
+      run: rm -rf test
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        registry-url: 'https://registry.npmjs.org/'
+
+    - name: Install pnpm
+      run: npm install -g pnpm
+
+    - name: Update package.json version for dev build
+      run: |
+        SHORT_SHA=$(git rev-parse --short HEAD)
+        npm version "0.0.0-dev.$SHORT_SHA" --no-git-tag-version --allow-same-version
+        echo "Updated package.json to dev version:"
+        cat package.json
+
+    - name: Install dependencies
+      run: pnpm install
+
+    - name: Build main package
+      run: pnpm run build
+
+    - name: Publish to npm with dev tag
+      run: pnpm publish . --no-git-checks --tag dev
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
