@@ -8,7 +8,8 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./plugin": "./dist/plugin.js"
+    "./plugin": "./dist/plugin.js",
+    "./client": "./dist/client.js"
   },
   "scripts": {
     "build": "tsc",
