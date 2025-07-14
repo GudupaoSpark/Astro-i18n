@@ -206,7 +206,7 @@ export function getTranslations(lang: string): Record<string, string> {
 
   // Merge fallback translations into the language translations
   // The fallback's value is used only if the key does not exist in the language's translations
-  return { ...fallbackTranslations, ...langTranslations };
+  return { ...fallbackTranslations, ...langTranslations, lang: lang };
 }
 
 export function getComponentProps(lang: string) {
