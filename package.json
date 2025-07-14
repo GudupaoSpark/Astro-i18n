@@ -2,7 +2,7 @@
   "name": "@gudupao/astro-i18n",
   "version": "0.0.0",
   "type": "module",
-  "description": "Astro i18n 插件，支援 {{t.xxx}}，本地語言包、語言切換、SSR/SSG 通用。",
+  "description": "Astro i18n plugin with support for {{t.xxx}}, local language packs, language switching, and compatibility with both SSR and SSG.",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
