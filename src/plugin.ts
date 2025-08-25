@@ -166,7 +166,12 @@ export const getStaticPaths = async (context) => {
     const paths = await originalGetStaticPaths(context);
     return paths.map(p => ({ ...p, params: { ...p.params, lang: p.params?.lang || '' } }));
   }
-  return [];
+  // 獲取所有可用的語言
+  const { getAvailableLanguages } = await import("${path.resolve(__dirname, './translator.js').replace(/\\/g, '/')}");
+  const languages = getAvailableLanguages();
+  return languages.map((lang) => ({
+    params: { lang },
+  }));
 };
 
 const { lang } = Astro.params;

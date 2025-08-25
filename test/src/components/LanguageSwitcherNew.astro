@@ -32,7 +32,7 @@ const availableLanguages = getAvailableLanguages();
 </div>
 
 <script is:inline>
- // 檢測當前語言的函數
+// 檢測當前語言的函數
   function detectCurrentLanguage() {
     // 首先檢查 URL 參數
     const urlParams = new URLSearchParams(window.location.search);
@@ -49,15 +49,22 @@ const availableLanguages = getAvailableLanguages();
     if (cookies.lang) return cookies.lang;
 
     // 最後檢查 localStorage
-    const storedLang = localStorage.getItem('lang');
-    if (storedLang) return storedLang;
+    if (typeof localStorage !== 'undefined') {
+      const storedLang = localStorage.getItem('lang');
+      if (storedLang) return storedLang;
+    }
 
     // 如果都沒有，返回瀏覽器語言或默認語言
-    const browserLang = navigator.language.split('-')[0].toLowerCase();
-    return browserLang;
+    if (typeof navigator !== 'undefined' && navigator.language) {
+      const browserLang = navigator.language.split('-')[0].toLowerCase();
+      return browserLang;
+    }
+
+    // 默認語言
+    return 'en';
   }
 
- // 切換語言的函數
+// 切換語言的函數
   function switchLanguage(language, pathBasedRouting, autoDetectLanguage) {
     if (pathBasedRouting) {
       // 路徑基於路由的模式
@@ -73,19 +80,23 @@ const availableLanguages = getAvailableLanguages();
       // 設置語言 Cookie
       document.cookie = `lang=${language}; path=/; max-age=31536000; samesite=lax`;
       // 設置 localStorage
-      localStorage.setItem('lang', language);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('lang', language);
+      }
       // 重新加載頁面以應用新語言
       window.location.reload();
     }
   }
 
- // 為每個按鈕添加點擊事件監聽器
-  document.querySelectorAll('.switcher-buttons button').forEach(button => {
-    button.addEventListener('click', function() {
-      const language = this.getAttribute('data-lang');
-      switchLanguage(language, pathBasedRouting, autoDetectLanguage);
+// 為每個按鈕添加點擊事件監聽器
+  if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+    document.querySelectorAll('.switcher-buttons button').forEach(button => {
+      button.addEventListener('click', function() {
+        const language = this.getAttribute('data-lang');
+        switchLanguage(language, pathBasedRouting, autoDetectLanguage);
+      });
     });
-  });
+  }
 </script>
 
 <style>

@@ -26,5 +26,6 @@ export interface AstroI18nOptions {
     LanguageSwitcher?: string;
     TestAstro?: string;
     TestReact?: string;
+    TestVue?: string;
   };
 }

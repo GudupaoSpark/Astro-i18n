@@ -3,6 +3,7 @@ import { getTranslator, getTranslations, setCurrentLang } from '../../../src/tra
 import Layout from '../layouts/Layout.astro';
 import TestAstro from '../components/test.astro';
 import TestReact from '../components/test';
+import TestVue from '../components/test.vue';
 import LanguageSwitcherNew from '../components/LanguageSwitcherNew.astro';
 
 // 禁用預渲染以訪問請求頭
@@ -51,10 +52,11 @@ const translations = getTranslations();
     <p>翻譯測試: {t("hello")}</p>
   </div>
   
-  <!-- 使用新的語言切換器組件 -->
+ <!-- 使用新的語言切換器組件 -->
   <LanguageSwitcherNew pathBasedRouting={false} />
   
   <TestReact translations={getTranslations()} />
+  <TestVue translations={getTranslations()} />
   <TestAstro />
 </Layout>
 
