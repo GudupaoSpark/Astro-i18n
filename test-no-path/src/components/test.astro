@@ -1,0 +1,12 @@
+---
+import { getTranslator, getCurrentLang } from '../../../src/translator';
+
+// 獲取當前語言
+const currentLang = getCurrentLang() || 'en';
+const t = getTranslator();
+
+---
+
+<div>
+  <h1>Astro Test:{t('hello')} {t('123.a')}</h1>
+</div>

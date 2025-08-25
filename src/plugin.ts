@@ -21,6 +21,7 @@ import { loadLocalesFrom, getTranslator, getAvailableLanguages } from './transla
 export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegration {
   const localesDir = options.localesDir ?? 'locales';
   const fallbackLang = options.fallbackLang ?? 'en';
+  const pathBasedRouting = options.pathBasedRouting ?? true; // Default to true to maintain backward compatibility
   const components = options.components || {};
 
   let userPages: Array<{path: string, file: string}> = [];
@@ -85,6 +86,12 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
         astroConfig = config;
         logger.info('Plugin initialized, language files will be loaded on first translation request.');
         logger.info('Setting up automatic route detection...');
+        
+        // Only setup automatic route detection if path-based routing is enabled
+        if (!pathBasedRouting) {
+          logger.info('Path-based routing is disabled, skipping automatic route detection.');
+          return;
+        }
         
         const pagesDir = path.join(url.fileURLToPath(config.srcDir), 'pages');
         const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
@@ -181,6 +188,12 @@ Astro.locals.t = t;
         logger.info('Automatic route detection completed.');
       },
       'astro:server:setup': ({ server, logger }) => {
+        // Only setup middleware if path-based routing is enabled
+        if (!pathBasedRouting) {
+          logger.info('Path-based routing is disabled, skipping root path redirection middleware.');
+          return;
+        }
+        
         const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
         logger.info(`Adding temporary directory to Vite watcher: ${tempDir}`);
         server.watcher.add(tempDir);
@@ -220,52 +233,56 @@ Astro.locals.t = t;
           logger.info('Cleaned up temporary i18n page directory.');
         }
 
-        logger.info('Creating root redirect pages for static build...');
         const destDir = url.fileURLToPath(dir);
-// Handle 404 page
-        logger.info('Ensuring 404.html is correctly placed...');
-        const astro404Path = path.join(destDir, '404.html');
 
-        if (fs.existsSync(astro404Path)) {
-            logger.info('Verified: 404.html found in build output.');
-        } else {
-            const nested404Path = path.join(destDir, '404', 'index.html');
-            if (fs.existsSync(nested404Path)) {
-                fs.renameSync(nested404Path, astro404Path);
-                try {
-                    fs.rmdirSync(path.join(destDir, '404'));
-                } catch (e) {
-                    // Ignore error if directory is not empty for some reason
-                }
-                logger.info('Moved /404/index.html to /404.html.');
-            } else {
-                logger.info('No 404.astro page found or built. Skipping 404 page handling.');
-            }
-        }
-        const availableLanguages = getAvailableLanguages();
+        // Only create redirect pages if path-based routing is enabled
+        if (pathBasedRouting) {
+          logger.info('Creating root redirect pages for static build...');
+  // Handle 404 page
+          logger.info('Ensuring 404.html is correctly placed...');
+          const astro404Path = path.join(destDir, '404.html');
 
-        if (availableLanguages.length === 0) {
-          logger.info('No languages found, skipping redirect page generation.');
-          return;
-        }
+          if (fs.existsSync(astro404Path)) {
+              logger.info('Verified: 404.html found in build output.');
+          } else {
+              const nested404Path = path.join(destDir, '404', 'index.html');
+              if (fs.existsSync(nested404Path)) {
+                  fs.renameSync(nested404Path, astro404Path);
+                  try {
+                      fs.rmdirSync(path.join(destDir, '404'));
+                  } catch (e) {
+                      // Ignore error if directory is not empty for some reason
+                  }
+                  logger.info('Moved /404/index.html to /404.html.');
+              } else {
+                  logger.info('No 404.astro page found or built. Skipping 404 page handling.');
+              }
+          }
+          const availableLanguages = getAvailableLanguages();
 
-        const redirectContent = createRedirectHtml(availableLanguages, fallbackLang);
-
-        for (const page of userPages) {
-          const firstPart = page.path.split('/')[0];
-          if (availableLanguages.includes(firstPart)) {
-            continue;
+          if (availableLanguages.length === 0) {
+            logger.info('No languages found, skipping redirect page generation.');
+            return;
           }
 
-          const pagePath = page.path === '' ? 'index.html' : path.join(page.path, 'index.html');
-          const filePath = path.join(destDir, pagePath);
-          
-          fs.mkdirSync(path.dirname(filePath), { recursive: true });
-          
-          fs.writeFileSync(filePath, redirectContent, 'utf-8');
-          logger.info(`Created redirect page: /${page.path || ''} -> ${filePath.replace(destDir, '')}`);
+          const redirectContent = createRedirectHtml(availableLanguages, fallbackLang);
+
+          for (const page of userPages) {
+            const firstPart = page.path.split('/')[0];
+            if (availableLanguages.includes(firstPart)) {
+              continue;
+            }
+
+            const pagePath = page.path === '' ? 'index.html' : path.join(page.path, 'index.html');
+            const filePath = path.join(destDir, pagePath);
+            
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
+            
+            fs.writeFileSync(filePath, redirectContent, 'utf-8');
+            logger.info(`Created redirect page: /${page.path || ''} -> ${filePath.replace(destDir, '')}`);
+          }
+          logger.info('Redirect pages created.');
         }
-        logger.info('Redirect pages created.');
 
         // Cleanup .ni files after build to avoid duplicates.
         const cleanupNiFiles = (currentDir: string) => {

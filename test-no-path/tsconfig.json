@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": ["./node_modules/@types"],
+    "skipLibCheck": true,
+    "types": ["node", "react", "react-dom"],
+    "noEmit": true,
+    "allowJs": true
+  }
+}

@@ -1,0 +1,72 @@
+---
+import { getTranslator, getTranslations, setCurrentLang } from '../../../src/translator.js';
+import Layout from '../layouts/Layout.astro';
+import TestAstro from '../components/test.astro';
+import TestReact from '../components/test';
+import LanguageSwitcherNew from '../components/LanguageSwitcherNew.astro';
+
+// 禁用預渲染以訪問請求頭
+export const prerender = false;
+
+// 檢測當前語言
+function detectLanguage() {
+  // 首先檢查 URL 參數
+  const urlParams = new URLSearchParams(Astro.url.search);
+  const langParam = urlParams.get('lang');
+  if (langParam) return langParam;
+
+  // 然後檢查 Cookie
+  const cookies = Astro.request.headers.get('cookie');
+  if (cookies) {
+    const cookieObj = Object.fromEntries(
+      cookies.split(';').map(cookie => {
+        const [name, value] = cookie.trim().split('=');
+        return [name, decodeURIComponent(value)];
+      })
+    );
+    if (cookieObj.lang) return cookieObj.lang;
+  }
+
+  // 最後檢查 localStorage (在服務器端無法直接訪問，但我們可以設置一個默認值)
+  return 'en'; // 默認語言
+}
+
+// 獲取當前語言
+const currentLang = detectLanguage();
+
+// 設置當前語言以供翻譯器使用
+setCurrentLang(currentLang);
+
+// 獲取翻譯器
+const t = getTranslator();
+
+// 獲取翻譯對象以供客戶端組件使用
+const translations = getTranslations();
+---
+
+<Layout title={`${t("hello")} - Astro i18n (無路徑模式)`}>
+  <div class="debug-info">
+    <h1>無路徑多語言模式測試</h1>
+    <p>當前語言: {currentLang}</p>
+    <p>翻譯測試: {t("hello")}</p>
+  </div>
+  
+  <!-- 使用新的語言切換器組件 -->
+  <LanguageSwitcherNew pathBasedRouting={false} />
+  
+  <TestReact translations={getTranslations()} />
+  <TestAstro />
+</Layout>
+
+<style>
+.debug-info {
+  background: #f0f0f0;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 5px;
+}
+
+.debug-info h1 {
+  margin-top: 0;
+}
+</style>

@@ -15,6 +15,8 @@ export interface Locals {
 export interface AstroI18nOptions {
   /** Whether to automatically redirect to the language URL, defaults to true */
   autoRedirect?: boolean;
+  /** Whether to use path-based routing (e.g., /en/page), defaults to true */
+  pathBasedRouting?: boolean;
   localesDir?: string;       // Defaults to "locales"
   fallbackLang?: string;     // Defaults to "en"
   components?: {

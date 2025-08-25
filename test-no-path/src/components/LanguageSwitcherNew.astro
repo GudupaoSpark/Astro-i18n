@@ -1,0 +1,139 @@
+---
+// 獲取所有可用的語言
+const { getAvailableLanguages } = await import('../../../src/translator.js');
+const availableLanguages = getAvailableLanguages();
+
+interface Props {
+  pathBasedRouting?: boolean; // 是否使用路徑基於路由的模式
+}
+
+const { pathBasedRouting = true } = Astro.props;
+
+// 檢測當前語言的函數
+function detectCurrentLanguage() {
+  // 首先檢查 URL 參數
+  const urlParams = new URLSearchParams(Astro.url.search);
+  const langParam = urlParams.get('lang');
+  if (langParam) return langParam;
+
+  // 然後檢查 Cookie
+  const cookies = Astro.request.headers.get('cookie');
+  if (cookies) {
+    const cookieObj = Object.fromEntries(
+      cookies.split(';').map(cookie => {
+        const [name, value] = cookie.trim().split('=');
+        return [name, decodeURIComponent(value)];
+      })
+    );
+    if (cookieObj.lang) return cookieObj.lang;
+  }
+
+  // 返回默認語言
+  return 'en';
+}
+
+// 獲取當前語言
+const currentLang = detectCurrentLanguage();
+---
+
+<script is:inline>
+
+  // 切換語言的函數
+  function switchLanguage(language, options) {
+    const pathBasedRouting = options.pathBasedRouting.pathBasedRouting;
+    if (pathBasedRouting) {
+      // 路徑基於路由的模式
+      // 設置語言 Cookie
+      document.cookie = `lang=${language}; path=/; max-age=31536000; samesite=lax`;
+      console.log('[LanguageSwitcher] 設置語言 Cookie:', language);
+      
+      const urlParts = window.location.pathname.split('/');
+      urlParts[1] = language;
+      window.location.href = urlParts.join('/');
+    } else {
+      // 無路徑基於路由的模式
+      // 設置語言 Cookie
+      document.cookie = `lang=${language}; path=/; max-age=31536000; samesite=lax`;
+      // 設置 localStorage
+      localStorage.setItem('lang', language);
+      // 重新加載頁面以應用新語言
+      window.location.href = window.location.href;
+    }
+  }
+
+  // 為每個按鈕添加點擊事件監聽器
+  document.querySelectorAll('.switcher-buttons button').forEach(button => {
+    button.addEventListener('click', function() {
+      const language = this.getAttribute('data-lang');
+      switchLanguage(language, {pathBasedRouting: {$pathBasedRouting: pathBasedRouting}});
+    });
+  });
+
+</script>
+
+<div class="language-switcher">
+  <h3>語言切換器 (新版本)</h3>
+  <p>當前模式: {pathBasedRouting ? '路徑基於路由' : '無路徑基於路由'}</p>
+  <div class="switcher-buttons">
+    {availableLanguages.map((language) => (
+      <button
+        data-lang={language}
+        class={language === currentLang ? 'active' : ''}
+      >
+        {language === 'en' && 'English'}
+        {language === 'zh' && '中文'}
+        {language === 'jp' && '日本語'}
+        {language !== 'en' && language !== 'zh' && language !== 'jp' && language}
+      </button>
+    ))}
+  </div>
+</div>
+
+<style>
+.language-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 20px 0;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #f9f9;
+}
+
+.switcher-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.language-switcher button {
+  padding: 8px 12px;
+  border: none;
+  background: #f0f0f0;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.language-switcher button:hover {
+  background: #e0e0;
+}
+
+.language-switcher button.active {
+  background: #007bff;
+  color: white;
+}
+
+.language-switcher h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.language-switcher p {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #666;
+}
+</style>

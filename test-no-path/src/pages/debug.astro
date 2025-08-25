@@ -1,0 +1,47 @@
+---
+import { getTranslator, getAvailableLanguages, getTranslations } from '../../../src/translator';
+import Layout from '../layouts/Layout.astro';
+
+// 獲取所有可用語言
+const availableLangs = getAvailableLanguages();
+console.log('可用語言:', availableLangs);
+
+// 獲取英文和中文的翻譯
+const enTranslator = getTranslator('en');
+const zhTranslator = getTranslator('zh');
+
+// 獲取全部翻譯內容
+const enTranslations = getTranslations('en');
+const zhTranslations = getTranslations('zh');
+---
+
+<Layout title="翻譯調試頁面">
+  <div class="container">
+    <h1>翻譯調試頁面</h1>
+
+    <h2>可用語言</h2>
+    <pre>{JSON.stringify(availableLangs, null, 2)}</pre>
+
+    <h2>英文翻譯</h2>
+    <p>Hello (英文): {enTranslator('hello')}</p>
+    <pre>{JSON.stringify(enTranslations, null, 2)}</pre>
+
+    <h2>中文翻譯</h2>
+    <p>Hello (中文): {zhTranslator('hello')}</p>
+    <pre>{JSON.stringify(zhTranslations, null, 2)}</pre>
+  </div>
+</Layout>
+
+<style>
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+  pre {
+    background: #f4f4f4;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+  }
+</style>

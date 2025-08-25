@@ -6,6 +6,9 @@ let localesCache: Record<string, Record<string, string>> = {};
 let fallbackLang = 'en';
 let loaded = false; // Add global loading status flag
 
+// Store the current language for non-path-based routing
+let currentLang: string | null = null;
+
 
 // Function to load language files
 export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en', logger?: any): void {
@@ -135,7 +138,7 @@ export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en
 }
 
 // Function to get translator
-export function getTranslator(lang: string): (key: string, params?: Record<string, string | number>) => string {
+export function getTranslator(lang?: string): (key: string, params?: Record<string, string | number>) => string {
   // Ensure language files are loaded
   if (!loaded) {
     _logger.info('Warning: Language files not loaded, will auto-load default configuration');
@@ -144,10 +147,14 @@ export function getTranslator(lang: string): (key: string, params?: Record<strin
   }
   
   return (key: string, params?: Record<string, string | number>) => {
-
+    // Determine the language to use:
+    // 1. If lang parameter is provided, use it
+    // 2. If currentLang is set (non-path-based routing), use it
+    // 3. Otherwise, fall back to the fallbackLang
+    const effectiveLang = lang || currentLang || fallbackLang;
 
     // Get translations for current and fallback language
-    const dict = localesCache[lang] || {};
+    const dict = localesCache[effectiveLang] || {};
     const fallbackDict = localesCache[fallbackLang] || {};
 
     // Helper function to get nested value from object using dot notation
@@ -178,7 +185,7 @@ export function getTranslator(lang: string): (key: string, params?: Record<strin
       text = getNestedValue(fallbackDict, key);
       if (text === undefined) {
         // If not found in fallback language either, use the key itself
-        throw new Error(`Translation not found: ${key} (Language: ${lang}, Fallback language: ${fallbackLang})`);
+        throw new Error(`Translation not found: ${key} (Language: ${effectiveLang}, Fallback language: ${fallbackLang})`);
         text = key;
       } else {
         // Found translation from fallback language
@@ -200,23 +207,35 @@ export function getTranslator(lang: string): (key: string, params?: Record<strin
 }
 
 // Helper function: Get all translations for the current language
-export function getTranslations(lang: string): Record<string, string> {
-  const langTranslations = localesCache[lang] || {};
+export function getTranslations(lang?: string): Record<string, string> {
+  // Determine the language to use:
+  // 1. If lang parameter is provided, use it
+  // 2. If currentLang is set (non-path-based routing), use it
+  // 3. Otherwise, fall back to the fallbackLang
+  const effectiveLang = lang || currentLang || fallbackLang;
+  
+ const langTranslations = localesCache[effectiveLang] || {};
   const fallbackTranslations = localesCache[fallbackLang] || {};
 
   // Merge fallback translations into the language translations
   // The fallback's value is used only if the key does not exist in the language's translations
-  return { ...fallbackTranslations, ...langTranslations, lang: lang };
+  return { ...fallbackTranslations, ...langTranslations, lang: effectiveLang };
 }
 
-export function getComponentProps(lang: string) {
+export function getComponentProps(lang?: string) {
   return {
     translations: getTranslations(lang),
   };
 }
 
 // Helper function: Check if key exists in translations
-export function hasTranslation(lang: string, key: string): boolean {
+export function hasTranslation(lang: string | undefined, key: string): boolean {
+  // Determine the language to use:
+  // 1. If lang parameter is provided, use it
+  // 2. If currentLang is set (non-path-based routing), use it
+  // 3. Otherwise, fall back to the fallbackLang
+  const effectiveLang = lang || currentLang || fallbackLang;
+  
   const checkNestedKey = (obj: any, key: string): boolean => {
     // First try direct key access
     if (key in obj) {
@@ -238,7 +257,7 @@ export function hasTranslation(lang: string, key: string): boolean {
     return typeof value === 'string';
   };
 
-  const dict = localesCache[lang] || {};
+  const dict = localesCache[effectiveLang] || {};
   const fallbackDict = localesCache[fallbackLang] || {};
   
   return checkNestedKey(dict, key) || checkNestedKey(fallbackDict, key);
@@ -256,6 +275,16 @@ export function getAvailableLanguages(): string[] {
 }
 
 // Helper function: Generate paths for Astro's getStaticPaths
+// Function to set the current language for non-path-based routing
+export function setCurrentLang(lang: string) {
+  currentLang = lang;
+}
+
+// Function to get the current language for non-path-based routing
+export function getCurrentLang(): string | null {
+  return currentLang;
+}
+
 export function getStaticPaths() {
   // Ensure language files are loaded correctly during build
   if (!loaded) {

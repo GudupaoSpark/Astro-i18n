@@ -4,6 +4,9 @@ import Layout from '../layouts/Layout.astro';
 import TestAstro from '../components/test.astro';
 import TestReact from '../components/test';
 
+// 禁用預渲染以訪問請求頭
+export const prerender = false;
+
 const lang = Astro.params.lang || 'en';
 const t = getTranslator(lang);
 ---

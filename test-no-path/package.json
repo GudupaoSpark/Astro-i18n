@@ -4,11 +4,8 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
-    "dev:no-path": "cd ../test-no-path && astro dev",
     "build": "astro build",
-    "build:no-path": "cd ../test-no-path && astro build",
     "preview": "astro preview",
-    "preview:no-path": "cd ../test-no-path && astro preview",
     "astro": "astro"
   },
   "dependencies": {
