@@ -26,7 +26,7 @@ function detectCurrentLanguage() {
       })
     );
     if (cookieObj.lang) return cookieObj.lang;
-  }
+ }
 
   // 返回默認語言
   return 'en';
@@ -36,11 +36,28 @@ function detectCurrentLanguage() {
 const currentLang = detectCurrentLanguage();
 ---
 
-<script is:inline>
+<div class="language-switcher">
+  <h3>語言切換器 (新版本)</h3>
+  <p>當前模式: {pathBasedRouting ? '路徑基於路由' : '無路徑基於路由'}</p>
+  <div class="switcher-buttons">
+    {availableLanguages.map((language) => (
+      <button
+        data-lang={language}
+        class={language === currentLang ? 'active' : ''}
+        onclick={`switchLanguage('${language}', ${pathBasedRouting})`}
+      >
+        {language === 'en' && 'English'}
+        {language === 'zh' && '中文'}
+        {language === 'jp' && '日本語'}
+        {language !== 'en' && language !== 'zh' && language !== 'jp' && language}
+      </button>
+    ))}
+  </div>
+</div>
 
+<script is:inline>
   // 切換語言的函數
-  function switchLanguage(language, options) {
-    const pathBasedRouting = options.pathBasedRouting.pathBasedRouting;
+  function switchLanguage(language, pathBasedRouting) {
     if (pathBasedRouting) {
       // 路徑基於路由的模式
       // 設置語言 Cookie
@@ -57,37 +74,10 @@ const currentLang = detectCurrentLanguage();
       // 設置 localStorage
       localStorage.setItem('lang', language);
       // 重新加載頁面以應用新語言
-      window.location.href = window.location.href;
+      window.location.reload();
     }
   }
-
-  // 為每個按鈕添加點擊事件監聽器
-  document.querySelectorAll('.switcher-buttons button').forEach(button => {
-    button.addEventListener('click', function() {
-      const language = this.getAttribute('data-lang');
-      switchLanguage(language, {pathBasedRouting: {$pathBasedRouting: pathBasedRouting}});
-    });
-  });
-
 </script>
-
-<div class="language-switcher">
-  <h3>語言切換器 (新版本)</h3>
-  <p>當前模式: {pathBasedRouting ? '路徑基於路由' : '無路徑基於路由'}</p>
-  <div class="switcher-buttons">
-    {availableLanguages.map((language) => (
-      <button
-        data-lang={language}
-        class={language === currentLang ? 'active' : ''}
-      >
-        {language === 'en' && 'English'}
-        {language === 'zh' && '中文'}
-        {language === 'jp' && '日本語'}
-        {language !== 'en' && language !== 'zh' && language !== 'jp' && language}
-      </button>
-    ))}
-  </div>
-</div>
 
 <style>
 .language-switcher {
