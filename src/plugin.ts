@@ -22,7 +22,7 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
   const localesDir = options.localesDir ?? 'locales';
   const fallbackLang = options.fallbackLang ?? 'en';
   const pathBasedRouting = options.pathBasedRouting ?? true; // Default to true to maintain backward compatibility
-  const autoDetectLanguage = options.autoDetectLanguage ?? true; // Default to true to maintain backward compatibility
+  const autoDetectLanguage = options.autoDetectLanguage ?? false; // Default to false as per new requirement
   const components = options.components || {};
 
   let userPages: Array<{path: string, file: string}> = [];
