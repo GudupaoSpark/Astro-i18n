@@ -12,7 +12,8 @@ export default defineConfig({
     astroI18nPlugin({
       localesDir: './locales',  // 顯式指定完整路徑
       fallbackLang: 'en',
-      pathBasedRouting: false  // 使用無路徑模式
+      pathBasedRouting: false,  // 使用無路徑模式
+      autoDetectLanguage: true  // 啟用瀏覽器語言自動檢測
     })
   ]
 });

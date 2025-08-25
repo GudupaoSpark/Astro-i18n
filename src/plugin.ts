@@ -22,14 +22,15 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
   const localesDir = options.localesDir ?? 'locales';
   const fallbackLang = options.fallbackLang ?? 'en';
   const pathBasedRouting = options.pathBasedRouting ?? true; // Default to true to maintain backward compatibility
+  const autoDetectLanguage = options.autoDetectLanguage ?? true; // Default to true to maintain backward compatibility
   const components = options.components || {};
 
   let userPages: Array<{path: string, file: string}> = [];
   let astroConfig: AstroConfig;
 
-  function createRedirectHtml(availableLanguages: string[], fallbackLang: string): string {
+  function createRedirectHtml(availableLanguages: string[], fallbackLang: string, autoDetectLanguage: boolean): string {
     const clientLanguageDetector = `
-      function detectLanguage(availableLanguages, fallbackLang) {
+      function detectLanguage(availableLanguages, fallbackLang, autoDetectLanguage) {
         const urlParams = new URLSearchParams(window.location.search);
         const langParam = urlParams.get('lang');
         if (langParam && availableLanguages.includes(langParam)) return langParam;
@@ -44,11 +45,16 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
         const cookieLang = cookies.lang;
         if (cookieLang && availableLanguages.includes(cookieLang)) return cookieLang;
 
-        const browserLangs = navigator.languages || [navigator.language];
-        for (const browserLang of browserLangs) {
-          const lang = browserLang.split('-')[0].toLowerCase();
-          if (availableLanguages.includes(lang)) return lang;
+        // 如果啟用了自動檢測語言，則檢測瀏覽器語言
+        if (autoDetectLanguage) {
+          const browserLangs = navigator.languages || [navigator.language];
+          for (const browserLang of browserLangs) {
+            const lang = browserLang.split('-')[0].toLowerCase();
+            if (availableLanguages.includes(lang)) return lang;
+          }
         }
+        
+        // 如果沒有匹配到瀏覽器語言或未啟用自動檢測，則使用 fallbackLang
         return fallbackLang;
       }
     `;
@@ -62,8 +68,9 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
     (function() {
       const availableLanguages = ${JSON.stringify(availableLanguages)};
       const fallbackLang = "${fallbackLang}";
+      const autoDetectLanguage = ${autoDetectLanguage};
       ${clientLanguageDetector}
-      const detectedLang = detectLanguage(availableLanguages, fallbackLang);
+      const detectedLang = detectLanguage(availableLanguages, fallbackLang, autoDetectLanguage);
       const pathName = window.location.pathname;
       const search = window.location.search;
       document.cookie = \`lang=\${detectedLang}; path=/; max-age=31536000; samesite=lax\`;
@@ -216,7 +223,7 @@ Astro.locals.t = t;
           
           logger.info(`[astro-i18n] Intercepted request without language prefix: ${pathname}, serving language detector`);
 
-          const redirectContent = createRedirectHtml(availableLanguages, fallbackLang);
+          const redirectContent = createRedirectHtml(availableLanguages, fallbackLang, autoDetectLanguage);
           res.writeHead(200, { 'Content-Type': 'text/html' });
           res.end(redirectContent);
         });
@@ -265,7 +272,7 @@ Astro.locals.t = t;
             return;
           }
 
-          const redirectContent = createRedirectHtml(availableLanguages, fallbackLang);
+          const redirectContent = createRedirectHtml(availableLanguages, fallbackLang, autoDetectLanguage);
 
           for (const page of userPages) {
             const firstPart = page.path.split('/')[0];
