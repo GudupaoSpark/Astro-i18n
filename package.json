@@ -3,7 +3,11 @@
   "version": "0.0.0",
   "type": "module",
   "description": "Astro i18n plugin with support for {{t.xxx}}, local language packs, language switching, and compatibility with both SSR and SSG.",
-  "main": "./dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GudupaoSpark/Astro-i18n.git"
+  },
+ "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
