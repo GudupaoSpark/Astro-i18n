@@ -16,7 +16,7 @@ declare module 'astro' {
       headers: Record<string, string>;
   }
 }
-import { loadLocalesFrom, getTranslator, getAvailableLanguages } from './translator.js';
+import { loadLocalesFrom, getTranslator, getAvailableLanguages, reloadLocalesFrom } from './translator.js';
 
 export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegration {
   const localesDir = options.localesDir ?? 'locales';
@@ -200,38 +200,146 @@ Astro.locals.t = t;
         logger.info('Automatic route detection completed.');
       },
       'astro:server:setup': ({ server, logger }) => {
-        // Only setup middleware if path-based routing is enabled
-        if (!pathBasedRouting) {
-          logger.info('Path-based routing is disabled, skipping root path redirection middleware.');
-          return;
+        // Always setup locales hot-reload watcher, regardless of pathBasedRouting
+        const rootDir = (() => {
+          try {
+            if (astroConfig?.root) return url.fileURLToPath(astroConfig.root);
+          } catch {}
+          return server.config?.root ? path.resolve(server.config.root) : process.cwd();
+        })();
+        logger.info(`[astro-i18n] Server setup: rootDir=${rootDir}, localesDir=${localesDir}, fallbackLang=${fallbackLang}`);
+
+        // Build candidate locale directories (exists-only)
+        const candidates = [
+          path.join(rootDir, localesDir),
+          path.join(rootDir, 'public', localesDir),
+          path.join(process.cwd(), localesDir),
+          path.join(process.cwd(), 'public', localesDir),
+          path.join(rootDir, '..', localesDir),
+          path.join(rootDir, '..', '..', localesDir),
+        ];
+
+        const watchDirs = Array.from(new Set(
+          candidates
+            .map((p) => path.resolve(p))
+            .filter((p) => fs.existsSync(p))
+        ));
+
+        if (watchDirs.length > 0) {
+          logger.info(`[astro-i18n] Watching locale directories for changes: ${watchDirs.join(', ')}`);
+          server.watcher.add(watchDirs);
+        } else {
+          logger.info(`[astro-i18n] No locale directories found to watch (searched: ${candidates.join(', ')})`);
         }
-        
-        const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
-        logger.info(`Adding temporary directory to Vite watcher: ${tempDir}`);
-        server.watcher.add(tempDir);
 
-        // Add a Vite middleware to handle root path redirection
-        server.middlewares.use((req, res, next) => {
-          const reqUrl = req.url || '';
-          const pathname = reqUrl.split('?')[0];
+        // Debounce FS events to avoid duplicate reloads during save
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const pending: Array<{ event: string; file: string }> = [];
 
-          if (pathname.startsWith('/@') || pathname.startsWith('/__') || pathname.includes('.') || pathname.startsWith('/node_modules')) {
-            return next();
+        const matchWatchDir = (file: string): { matched: boolean; matchedDir?: string; abs: string } => {
+          const abs = path.resolve(file);
+          for (const dir of watchDirs) {
+            const d = path.resolve(dir);
+            if (abs === d || abs.startsWith(d + path.sep)) {
+              return { matched: true, matchedDir: d, abs };
+            }
           }
+          return { matched: false, abs };
+        };
 
-          const pathParts = pathname.split('/').filter(Boolean);
-          const availableLanguages = getAvailableLanguages();
+        const flush = () => {
+          const events = pending.splice(0, pending.length);
+          try {
+            logger.info(`[astro-i18n] 即将 reloadLocalesFrom + full-reload（去抖归并 ${events.length} 个事件）`);
+            reloadLocalesFrom(rootDir, localesDir, fallbackLang, logger);
 
-          if (pathParts.length > 0 && availableLanguages.includes(pathParts[0])) {
-            return next();
+            // Ensure SSR picks up new dictionaries: invalidate translator module(s) in Vite's module graph
+            const mg: any = (server as any).moduleGraph;
+            const translatorTs = path.resolve(__dirname, './translator.ts');
+            const translatorJs = path.resolve(__dirname, './translator.js');
+
+            const invalidateByFile = (file: string) => {
+              let count = 0;
+              const mods: any = mg?.getModulesByFile?.(file);
+              if (mods && mods.size) {
+                for (const m of mods) {
+                  mg.invalidateModule?.(m);
+                  count++;
+                  try { logger.info(`[astro-i18n] module invalidated: ${m.id || file}`); } catch {}
+                }
+              }
+              return count;
+            };
+
+            let invalidated = 0;
+            invalidated += invalidateByFile(translatorTs);
+            invalidated += invalidateByFile(translatorJs);
+
+            if (!invalidated && mg?.invalidateAll) {
+              logger.info('[astro-i18n] No translator module found to invalidate; falling back to invalidateAll()');
+              mg.invalidateAll();
+            }
+
+            server.ws.send({ type: 'full-reload' });
+            const files = events.map((e) => e.file).join(', ');
+            const types = Array.from(new Set(events.map((e) => e.event))).join('/');
+            logger.info(`[astro-i18n] Locales ${types} detected. Reloaded locales and triggered full-reload. Files: ${files}`);
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            logger.info(`[astro-i18n] Error during locales hot reload: ${msg}`);
           }
-          
-          logger.info(`[astro-i18n] Intercepted request without language prefix: ${pathname}, serving language detector`);
+        };
 
-          const redirectContent = createRedirectHtml(availableLanguages, fallbackLang, autoDetectLanguage);
-          res.writeHead(200, { 'Content-Type': 'text/html' });
-          res.end(redirectContent);
-        });
+        const schedule = () => {
+          if (debounceTimer) clearTimeout(debounceTimer);
+          logger.info(`[astro-i18n] Debounce: 即将 reloadLocalesFrom + full-reload (in 150ms). Pending events=${pending.length}`);
+          debounceTimer = setTimeout(flush, 150);
+        };
+
+        const onFsEvent = (event: 'add' | 'change' | 'unlink', file: string) => {
+          if (!file.toLowerCase().endsWith('.json')) return;
+          const res = matchWatchDir(file);
+          logger.info(`[astro-i18n] Watcher event: ${event} ${res.abs} matched=${res.matched}${res.matchedDir ? ` matchDir=${res.matchedDir}` : ''}`);
+          if (!res.matched) return;
+          pending.push({ event, file: res.abs });
+          schedule();
+        };
+
+        server.watcher.on('add', (file) => onFsEvent('add', file));
+        server.watcher.on('change', (file) => onFsEvent('change', file));
+        server.watcher.on('unlink', (file) => onFsEvent('unlink', file));
+
+        // Temp directory watcher and root redirect middleware only when path-based routing is enabled
+        if (pathBasedRouting) {
+          const tempDir = path.join(process.cwd(), 'node_modules', '.astro-i18n-temp');
+          logger.info(`Adding temporary directory to Vite watcher: ${tempDir}`);
+          server.watcher.add(tempDir);
+
+          // Add a Vite middleware to handle root path redirection
+          server.middlewares.use((req, res, next) => {
+            const reqUrl = req.url || '';
+            const pathname = reqUrl.split('?')[0];
+
+            if (pathname.startsWith('/@') || pathname.startsWith('/__') || pathname.includes('.') || pathname.startsWith('/node_modules')) {
+              return next();
+            }
+
+            const pathParts = pathname.split('/').filter(Boolean);
+            const availableLanguages = getAvailableLanguages();
+
+            if (pathParts.length > 0 && availableLanguages.includes(pathParts[0])) {
+              return next();
+            }
+            
+            logger.info(`[astro-i18n] Intercepted request without language prefix: ${pathname}, serving language detector`);
+
+            const redirectContent = createRedirectHtml(availableLanguages, fallbackLang, autoDetectLanguage);
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(redirectContent);
+          });
+        } else {
+          logger.info('Path-based routing is disabled, skipping root path redirection middleware.');
+        }
       },
       'astro:build:setup': ({ logger }) => {
         logger?.info('Language files will be loaded on demand during build process');

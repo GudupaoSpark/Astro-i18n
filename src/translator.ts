@@ -136,6 +136,40 @@ export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en
     _logger.info(`Failed to load language files:`, error);
   }
 }
+export function resetLocalesCache(): void {
+  try {
+    _logger.info('[astro-i18n] Resetting locales cache');
+  } catch {
+    // ignore logger issues
+  }
+  localesCache = {};
+  loaded = false;
+}
+
+export function reloadLocalesFrom(rootDir: string, dir: string, fallback: string, logger?: any): void {
+  try {
+    // Use provided logger if available to keep style consistent
+    if (logger) {
+      _logger = logger;
+    } else if (!_logger || typeof _logger.info !== 'function') {
+      _logger = { info: console.log };
+    }
+
+    const targetDir = path.join(rootDir, dir);
+    _logger.info(`[astro-i18n] Reloading language files from: ${targetDir} (fallback="${fallback}")`);
+    resetLocalesCache();
+    loadLocalesFrom(rootDir, dir, fallback, logger);
+    loaded = true;
+    _logger.info('[astro-i18n] Language files reloaded successfully');
+  } catch (error) {
+    // Ensure reload errors never crash dev loop
+    try {
+      _logger.info('[astro-i18n] Error during locales reload:', error);
+    } catch {
+      // ignore logger issues
+    }
+  }
+}
 
 // Function to get translator
 export function getTranslator(lang?: string): (key: string, params?: Record<string, string | number>) => string {
