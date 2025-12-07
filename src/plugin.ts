@@ -18,9 +18,12 @@ declare module 'astro' {
 }
 import { loadLocalesFrom, getTranslator, getAvailableLanguages, reloadLocalesFrom } from './translator.js';
 
-export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegration {
+export function astroI18nPlugin(options: AstroI18nOptions): AstroIntegration {
   const localesDir = options.localesDir ?? 'locales';
-  const fallbackLang = options.fallbackLang ?? 'en';
+  if (!options.fallbackLang) {
+    throw new Error('fallbackLang is required in astroI18nPlugin options');
+  }
+  const fallbackLang = options.fallbackLang;
   const pathBasedRouting = options.pathBasedRouting ?? true; // Default to true to maintain backward compatibility
   const autoDetectLanguage = options.autoDetectLanguage ?? false; // Default to false as per new requirement
   const components = options.components || {};
@@ -91,7 +94,14 @@ export function astroI18nPlugin(options: AstroI18nOptions = {}): AstroIntegratio
     hooks: {
       'astro:config:setup': ({ injectRoute, updateConfig, config, logger }) => {
         astroConfig = config;
-        logger.info('Plugin initialized, language files will be loaded on first translation request.');
+        logger.info('Plugin initialized, loading language files...');
+        const rootDir = (() => {
+          try {
+            if (config?.root) return url.fileURLToPath(config.root);
+          } catch {}
+          return process.cwd();
+        })();
+        loadLocalesFrom(rootDir, localesDir, fallbackLang, logger);
         logger.info('Setting up automatic route detection...');
         
         // Only setup automatic route detection if path-based routing is enabled
