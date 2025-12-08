@@ -3,7 +3,7 @@ import path from 'path';
 
 let _logger: any = console; // Defaults to console, updates if a logger is provided
 let localesCache: Record<string, Record<string, string>> = {};
-let fallbackLang = 'en';
+let fallbackLang: string;
 let loaded = false; // Add global loading status flag
 
 // Store the current language for non-path-based routing
@@ -11,7 +11,7 @@ let currentLang: string | null = null;
 
 
 // Function to load language files
-export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback = 'en', logger?: any): void {
+export function loadLocalesFrom(rootDir: string, dir = 'locales', fallback: string, logger?: any): void {
   fallbackLang = fallback;
   let localesDir = path.join(rootDir, dir);
 
@@ -175,9 +175,23 @@ export function reloadLocalesFrom(rootDir: string, dir: string, fallback: string
 export function getTranslator(lang?: string): (key: string, params?: Record<string, string | number>) => string {
   // Ensure language files are loaded
   if (!loaded) {
-    _logger.info('Warning: Language files not loaded, will auto-load default configuration');
-    loadLocalesFrom(process.cwd(), 'locales', fallbackLang, _logger);
-    loaded = true;
+    // Try to auto-load in development/build environment
+    const rootDir = process.cwd();
+    const possiblePaths = ['locales', './locales', 'test/locales', '../locales'];
+
+    for (const localesPath of possiblePaths) {
+      const fullPath = path.join(rootDir, localesPath);
+      if (fs.existsSync(fullPath)) {
+        _logger.info(`Auto-loading language files from: ${fullPath}`);
+        loadLocalesFrom(rootDir, localesPath, fallbackLang || 'en', _logger);
+        loaded = true;
+        break;
+      }
+    }
+
+    if (!loaded) {
+      throw new Error('Language files not loaded and could not be auto-loaded. Please ensure loadLocalesFrom is called before using getTranslator.');
+    }
   }
   
   return (key: string, params?: Record<string, string | number>) => {
@@ -299,11 +313,25 @@ export function hasTranslation(lang: string | undefined, key: string): boolean {
 
 // Helper function: Get all loaded languages
 export function getAvailableLanguages(): string[] {
-  // Ensure language files are loaded, this is crucial for getStaticPaths
+  // Ensure language files are loaded
   if (!loaded) {
-    _logger.info('Warning: Language files may not be loaded, attempting to auto-load.');
-    loadLocalesFrom(process.cwd(), 'locales', fallbackLang, _logger);
-    loaded = true;
+    // Try to auto-load
+    const rootDir = process.cwd();
+    const possiblePaths = ['locales', './locales', 'test/locales', '../locales'];
+
+    for (const localesPath of possiblePaths) {
+      const fullPath = path.join(rootDir, localesPath);
+      if (fs.existsSync(fullPath)) {
+        _logger.info(`Auto-loading language files from: ${fullPath} for getAvailableLanguages`);
+        loadLocalesFrom(rootDir, localesPath, fallbackLang || 'en', _logger);
+        loaded = true;
+        break;
+      }
+    }
+
+    if (!loaded) {
+      throw new Error('Language files not loaded and could not be auto-loaded. Please ensure loadLocalesFrom is called before using getAvailableLanguages.');
+    }
   }
   return Object.keys(localesCache);
 }
@@ -320,7 +348,7 @@ export function getCurrentLang(): string | null {
 }
 
 export function getStaticPaths() {
-  // Ensure language files are loaded correctly during build
+  // Ensure language files are loaded for build time
   if (!loaded) {
     const rootDir = process.cwd();
     // Try multiple possible language file paths
@@ -330,7 +358,7 @@ export function getStaticPaths() {
       'test/locales',
       '../locales'
     ];
-    
+
     for (const localesPath of possiblePaths) {
       const fullPath = path.join(rootDir, localesPath);
       if (fs.existsSync(fullPath)) {
@@ -340,11 +368,15 @@ export function getStaticPaths() {
         break;
       }
     }
+
+    if (!loaded) {
+      throw new Error('Language files not loaded and could not be auto-loaded. Please ensure loadLocalesFrom is called before using getStaticPaths.');
+    }
   }
-  
+
   const languages = Object.keys(localesCache);
   _logger.info(`getStaticPaths generating paths: ${languages.join(', ')}`);
-  
+
   return languages.map((lang) => ({
     params: { lang },
   }));

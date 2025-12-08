@@ -20,7 +20,7 @@ export interface AstroI18nOptions {
   /** Whether to automatically detect browser language, defaults to true */
   autoDetectLanguage?: boolean;
   localesDir?: string;       // Defaults to "locales"
-  fallbackLang?: string;     // Defaults to "en"
+  fallbackLang: string;      // Required
   components?: {
     Layout?: string;
     LanguageSwitcher?: string;
